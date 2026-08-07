@@ -2,6 +2,10 @@
 
 React frontend for the Student to Department Complaint Management System.
 
+## Related Repositories
+
+- **Backend**: [s2dcms-backend](https://github.com/Doomd37/s2dcms-backend) - Spring Boot backend with JWT authentication, Redis caching, and RabbitMQ email processing
+
 ## Tech Stack
 
 - **React 18** - UI library
