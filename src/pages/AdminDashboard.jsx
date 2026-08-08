@@ -22,6 +22,7 @@ const AdminDashboard = () => {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [selectedDeptId, setSelectedDeptId] = useState(null);
   const [newPassword, setNewPassword] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   // Delete confirmation state
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -90,9 +91,12 @@ const AdminDashboard = () => {
       setShowPasswordModal(false);
       setNewPassword('');
       setSelectedDeptId(null);
-      alert('Password updated successfully');
+      setPasswordSuccess('Password updated successfully');
+      setError(null);
+      setTimeout(() => setPasswordSuccess(''), 3000);
     } catch (err) {
       setError('Failed to update password');
+      setPasswordSuccess('');
       console.error(err);
     }
   };
@@ -148,6 +152,11 @@ const AdminDashboard = () => {
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
             {error}
+          </div>
+        )}
+        {passwordSuccess && (
+          <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+            {passwordSuccess}
           </div>
         )}
 

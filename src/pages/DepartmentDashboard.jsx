@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { departmentService } from '../services/departmentService';
+import ProfileModal from '../components/ProfileModal';
 
 const DepartmentDashboard = () => {
   const [profile, setProfile] = useState(null);
@@ -16,6 +17,9 @@ const DepartmentDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [profileType, setProfileType] = useState(null);
   const { logout, getUser } = useAuth();
   const navigate = useNavigate();
 
@@ -71,9 +75,24 @@ const DepartmentDashboard = () => {
   return (
     <div className="min-h-screen bg-gray-100">
       <header className="bg-white p-4 shadow-md flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-800">Department Dashboard</h1>
+        <div className="flex items-center gap-4">
+          {profile?.departmentProfile && (
+            <img
+              src={`http://localhost:8080${profile.departmentProfile}`}
+              alt="Department Profile"
+              className="w-12 h-12 rounded-full object-cover border-2 border-gray-300 shadow-sm"
+            />
+          )}
+          <h1 className="text-2xl font-bold text-gray-800">Department Dashboard</h1>
+        </div>
         <div className="flex items-center gap-4">
           <span className="text-gray-600">{profile?.departmentName || getUser()?.email}</span>
+          <button 
+            onClick={() => navigate('/department/profile')}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Profile
+          </button>
           <button 
             onClick={handleLogout}
             className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
@@ -133,13 +152,28 @@ const DepartmentDashboard = () => {
             <div className="grid gap-4">
               {complaints.map((complaint) => (
                 <div key={complaint.id} className="bg-gray-50 p-4 rounded-lg shadow hover:shadow-md transition-shadow">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-blue-600">#{complaint.id}</span>
-                    <span className={`${getStatusColor(complaint.status)} text-white px-3 py-1 rounded-full text-sm`}>
-                      {complaint.status}
-                    </span>
+                  <div className="flex items-start gap-3 mb-2">
+                    {complaint.profilePicturePath && (
+                      <img
+                        src={`http://localhost:8080${complaint.profilePicturePath}`}
+                        alt="Student Profile"
+                        className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => {
+                          setSelectedProfile({ name: complaint.studentName, email: complaint.studentEmail, regNo: complaint.studentRegNumber, departmentName: complaint.departmentName, profilePicturePath: complaint.profilePicturePath });
+                          setProfileType('student');
+                          setShowProfileModal(true);
+                        }}
+                      />
+                    )}
+                    <div className="flex-1">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className={`${getStatusColor(complaint.status)} text-white px-3 py-1 rounded-full text-sm`}>
+                          {complaint.status}
+                        </span>
+                      </div>
+                      <p className="text-gray-600 mb-2">{complaint.snippet}</p>
+                    </div>
                   </div>
-                  <p className="text-gray-600 mb-2">{complaint.snippet}</p>
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-gray-500 text-sm">
                       {new Date(complaint.sentAt).toLocaleDateString()}
@@ -159,6 +193,18 @@ const DepartmentDashboard = () => {
             </div>
           )}
         </section>
+
+        {/* Profile Modal */}
+        <ProfileModal
+          isOpen={showProfileModal}
+          onClose={() => {
+            setShowProfileModal(false);
+            setSelectedProfile(null);
+            setProfileType(null);
+          }}
+          profile={selectedProfile}
+          type={profileType}
+        />
       </div>
     </div>
   );

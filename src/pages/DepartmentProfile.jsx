@@ -1,15 +1,12 @@
-// Student Profile Page
+// Department Profile Page
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { studentService } from '../services/studentService';
-import { User, Camera, ArrowLeft, Save } from 'lucide-react';
+import { departmentService } from '../services/departmentService';
+import { Building2, Camera, ArrowLeft, Save, Mail } from 'lucide-react';
 
-const StudentProfile = () => {
+const DepartmentProfile = () => {
   const [profile, setProfile] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-  });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,12 +24,11 @@ const StudentProfile = () => {
   const loadProfile = async () => {
     try {
       setLoading(true);
-      const profileData = await studentService.getProfile();
+      const profileData = await departmentService.getProfile();
       setProfile(profileData);
-      setFormData({ name: profileData.name });
       // Only set image preview if there's a valid path
-      if (profileData.profilePicturePath && profileData.profilePicturePath !== '') {
-        setImagePreview(`http://localhost:8080${profileData.profilePicturePath}`);
+      if (profileData.departmentProfile && profileData.departmentProfile !== '') {
+        setImagePreview(`http://localhost:8080${profileData.departmentProfile}`);
       } else {
         setImagePreview(null);
       }
@@ -55,10 +51,6 @@ const StudentProfile = () => {
     }
   };
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -67,14 +59,13 @@ const StudentProfile = () => {
 
     try {
       const formDataToSend = new FormData();
-      formDataToSend.append('name', formData.name);
       if (removeProfile) {
         formDataToSend.append('removeProfile', 'true');
       } else if (imageFile) {
         formDataToSend.append('image', imageFile);
       }
 
-      await studentService.updateProfile(formDataToSend);
+      await departmentService.updateProfile(formDataToSend);
       setSuccess('Profile updated successfully!');
       setImageFile(null); // Clear the uploaded file
       setRemoveProfile(false); // Reset remove profile flag
@@ -100,12 +91,12 @@ const StudentProfile = () => {
       <header className="bg-white p-4 shadow-md flex justify-between items-center">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => navigate('/student/dashboard')}
+            onClick={() => navigate('/department/dashboard')}
             className="text-gray-600 hover:text-gray-800"
           >
             <ArrowLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-2xl font-bold text-gray-800">View/Edit Profile</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Department Profile</h1>
         </div>
         <button 
           onClick={handleLogout}
@@ -136,12 +127,12 @@ const StudentProfile = () => {
                   {imagePreview ? (
                     <img
                       src={imagePreview}
-                      alt="Profile Preview"
+                      alt="Department Profile Preview"
                       className="w-full h-full object-cover"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center bg-gray-100">
-                      <User className="w-20 h-20 text-gray-400" />
+                      <Building2 className="w-20 h-20 text-gray-400" />
                     </div>
                   )}
                 </div>
@@ -160,7 +151,7 @@ const StudentProfile = () => {
                 />
               </div>
               <div className="flex items-center gap-4 mt-4">
-                <p className="text-sm text-gray-600 font-medium">Click camera icon to change profile picture</p>
+                <p className="text-sm text-gray-600 font-medium">Click camera icon to change department profile picture</p>
                 {imagePreview && (
                   <button
                     type="button"
@@ -180,55 +171,11 @@ const StudentProfile = () => {
             {/* Profile Information */}
             <div className="p-8 space-y-6">
               <div className="border-l-4 border-blue-500 pl-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Personal Information</h3>
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Department Information</h3>
               </div>
 
               <div>
-                <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Registration Number</label>
-                  <input
-                    type="text"
-                    value={profile?.regNo || ''}
-                    disabled
-                    className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Email Verified</label>
-                  <div className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${profile?.emailVerified ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {profile?.emailVerified ? 'Verified' : 'Not Verified'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
-                <input
-                  type="email"
-                  value={profile?.email || ''}
-                  disabled
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Department</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Department Name</label>
                 <input
                   type="text"
                   value={profile?.departmentName || ''}
@@ -237,14 +184,27 @@ const StudentProfile = () => {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    value={profile?.email || ''}
+                    disabled
+                    className="w-full px-4 py-3 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed pl-10"
+                  />
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                </div>
+              </div>
+
               <div className="pt-4 border-t border-gray-200">
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={saving || !imageFile}
                   className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold shadow-md"
                 >
                   <Save className="w-5 h-5" />
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {saving ? 'Saving...' : 'Update Profile Picture'}
                 </button>
               </div>
             </div>
@@ -255,4 +215,4 @@ const StudentProfile = () => {
   );
 };
 
-export default StudentProfile;
+export default DepartmentProfile;

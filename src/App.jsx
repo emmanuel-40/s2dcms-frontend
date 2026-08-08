@@ -17,6 +17,7 @@ import StudentComplaints from './pages/StudentComplaints';
 import NewComplaint from './pages/NewComplaint';
 import ComplaintDetail from './pages/ComplaintDetail';
 import DepartmentDashboard from './pages/DepartmentDashboard';
+import DepartmentProfile from './pages/DepartmentProfile';
 import DepartmentComplaints from './pages/DepartmentComplaints';
 import ReplyComplaint from './pages/ReplyComplaint';
 import AdminDashboard from './pages/AdminDashboard';
@@ -82,6 +83,14 @@ function App() {
             element={
               <DepartmentRoute>
                 <DepartmentDashboard />
+              </DepartmentRoute>
+            } 
+          />
+          <Route 
+            path="/department/profile" 
+            element={
+              <DepartmentRoute>
+                <DepartmentProfile />
               </DepartmentRoute>
             } 
           />

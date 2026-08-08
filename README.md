@@ -31,13 +31,14 @@ The frontend uses a **blue, white, and gray color scheme** with Tailwind CSS:
 
 ## Security Implementation
 
-This frontend implements the exact security pattern used in your Spring Boot backend:
+This frontend implements advanced security patterns aligned with the Spring Boot backend:
 
 ### JWT Token Management
 - **Access Tokens**: Stored in memory only (never in localStorage for security)
 - **Refresh Tokens**: Stored in localStorage with automatic rotation
 - **Token Rotation**: Old refresh tokens are revoked when new ones are issued
 - **Auto-refresh**: Automatic token refresh when access tokens expire
+- **Session Management**: Supports up to 4 active sessions per user with automatic cleanup
 
 ### Authentication Flow
 1. User logs in → receives access + refresh tokens
@@ -109,39 +110,12 @@ npm run preview
 
 ## Project Structure
 
-```
-frontend/
-├── src/
-│   ├── components/          # Reusable components
-│   │   └── ProtectedRoute.jsx   # Role-based route protection
-│   ├── context/             # React Context
-│   │   └── AuthContext.jsx       # Authentication state management
-│   ├── pages/               # Page components
-│   │   ├── LoginPage.jsx
-│   │   ├── RegisterPage.jsx
-│   │   ├── StudentDashboard.jsx
-│   │   ├── StudentComplaints.jsx
-│   │   ├── NewComplaint.jsx
-│   │   ├── DepartmentDashboard.jsx
-│   │   ├── DepartmentComplaints.jsx
-│   │   ├── ReplyComplaint.jsx
-│   │   └── ComplaintDetail.jsx
-│   ├── services/            # API services
-│   │   ├── authService.js        # Authentication API calls
-│   │   ├── apiClient.js         # HTTP client with token refresh
-│   │   ├── studentService.js    # Student-specific API calls
-│   │   └── departmentService.js # Department-specific API calls
-│   ├── utils/                # Utility functions
-│   ├── App.jsx              # Main app with routing
-│   ├── main.jsx             # Entry point
-│   └── index.css            # Tailwind CSS directives
-├── index.html
-├── package.json
-├── vite.config.js
-├── tailwind.config.js       # Tailwind configuration
-├── postcss.config.js        # PostCSS configuration
-└── README.md
-```
+**Key Directories:**
+- `src/components/` - Reusable components (ProtectedRoute, ProfileModal, AttachmentModal)
+- `src/context/` - React Context for authentication state management
+- `src/pages/` - Page components for student and department portals
+- `src/services/` - API service layer with automatic token refresh
+- `src/utils/` - Utility functions and helpers
 
 ## Available Pages
 

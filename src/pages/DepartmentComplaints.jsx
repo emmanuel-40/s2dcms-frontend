@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
+import { Eye, EyeOff, Clock } from 'lucide-react';
+import ProfileModal from '../components/ProfileModal';
 
 const DepartmentComplaints = () => {
   const [complaints, setComplaints] = useState([]);
@@ -11,6 +13,9 @@ const DepartmentComplaints = () => {
   const [sortOrder, setSortOrder] = useState('NEWEST');
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [selectedProfile, setSelectedProfile] = useState(null);
+  const [profileType, setProfileType] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -105,20 +110,46 @@ const DepartmentComplaints = () => {
           <div className="grid gap-4">
             {complaints.map((complaint) => (
               <div key={complaint.id} className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-semibold text-blue-600">#{complaint.id}</span>
-                  <span className={`${getStatusColor(complaint.status)} text-white px-3 py-1 rounded-full text-sm`}>
-                    {complaint.status}
-                  </span>
+                <div className="flex items-start gap-3 mb-2">
+                  {complaint.profilePicturePath && (
+                    <img
+                      src={`http://localhost:8080${complaint.profilePicturePath}`}
+                      alt="Student Profile"
+                      className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => {
+                        setSelectedProfile({ name: complaint.studentName, email: complaint.studentEmail, regNo: complaint.studentRegNumber, departmentName: complaint.departmentName, profilePicturePath: complaint.profilePicturePath });
+                        setProfileType('student');
+                        setShowProfileModal(true);
+                      }}
+                    />
+                  )}
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className={`${getStatusColor(complaint.status)} text-white px-3 py-1 rounded-full text-sm`}>
+                        {complaint.status}
+                      </span>
+                    </div>
+                    <p className="text-gray-600 mb-2">{complaint.snippet}</p>
+                  </div>
                 </div>
-                <p className="text-gray-600 mb-2">{complaint.snippet}</p>
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-gray-500 text-sm">
+                  <span className="text-gray-500 text-sm flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
                     {new Date(complaint.sentAt).toLocaleDateString()}
                   </span>
-                  {!complaint.seenByDepartment && (
-                    <span className="bg-red-600 text-white px-2 py-1 rounded text-xs">New</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {complaint.seenByDepartment ? (
+                      <div className="flex items-center gap-1 text-green-600 text-xs bg-green-50 px-2 py-1 rounded-full">
+                        <Eye className="w-3 h-3" />
+                        <span>Seen</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-red-600 text-xs bg-red-50 px-2 py-1 rounded-full font-medium">
+                        <EyeOff className="w-3 h-3" />
+                        <span>New</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <button 
                   onClick={() => navigate(`/department/complaints/${complaint.id}`)}
@@ -151,6 +182,18 @@ const DepartmentComplaints = () => {
           )}
         </>
       )}
+
+      {/* Profile Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => {
+          setShowProfileModal(false);
+          setSelectedProfile(null);
+          setProfileType(null);
+        }}
+        profile={selectedProfile}
+        type={profileType}
+      />
     </div>
   );
 };

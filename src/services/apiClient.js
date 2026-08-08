@@ -84,6 +84,11 @@ class ApiClient {
       }
     }
 
+    // Handle 204 No Content responses
+    if (response.status === 204) {
+      return null;
+    }
+
     // Handle other error responses
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Request failed' }));

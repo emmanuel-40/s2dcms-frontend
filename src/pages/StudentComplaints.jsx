@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { studentService } from '../services/studentService';
+import { Eye, EyeOff, Clock } from 'lucide-react';
 
 const StudentComplaints = () => {
   const [complaints, setComplaints] = useState([]);
@@ -119,19 +120,32 @@ const StudentComplaints = () => {
             {complaints.map((complaint) => (
               <div key={complaint.id} className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-semibold text-blue-600">#{complaint.id}</span>
                   <span className={`${getStatusColor(complaint.status)} text-white px-3 py-1 rounded-full text-sm`}>
                     {complaint.status}
                   </span>
                 </div>
                 <p className="text-gray-600 mb-2">{complaint.snippet}</p>
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-gray-500 text-sm">
+                  <span className="text-gray-500 text-sm flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
                     {new Date(complaint.sentAt).toLocaleDateString()}
                   </span>
-                  {!complaint.seenByStudent && (
-                    <span className="bg-red-600 text-white px-2 py-1 rounded text-xs">New Reply</span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {complaint.seenByDepartment ? (
+                      <div className="flex items-center gap-1 text-green-600 text-xs bg-green-50 px-2 py-1 rounded-full">
+                        <Eye className="w-3 h-3" />
+                        <span>Seen by Dept</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-yellow-600 text-xs bg-yellow-50 px-2 py-1 rounded-full">
+                        <EyeOff className="w-3 h-3" />
+                        <span>Unseen by Dept</span>
+                      </div>
+                    )}
+                    {!complaint.seenByStudent && complaint.status === 'REPLIED' && (
+                      <span className="bg-red-600 text-white px-2 py-1 rounded text-xs font-medium">New Reply</span>
+                    )}
+                  </div>
                 </div>
                 <button 
                   onClick={() => navigate(`/student/complaints/${complaint.id}`)}

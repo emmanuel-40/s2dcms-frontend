@@ -1,8 +1,9 @@
-// Student Dashboard
+// Student Dashboard Page
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
+import { Eye, EyeOff } from 'lucide-react';
 
 const StudentDashboard = () => {
   const [profile, setProfile] = useState(null);
@@ -119,15 +120,32 @@ const StudentDashboard = () => {
               {complaints.map((complaint) => (
                 <div key={complaint.id} className="bg-white p-4 rounded-lg border-2 border-blue-200 shadow-sm hover:shadow-md hover:border-blue-400 transition-all">
                   <div className="flex justify-between items-center mb-3">
-                    <span className="font-bold text-blue-600 text-lg">#{complaint.id}</span>
                     <span className={`${getStatusColor(complaint.status)} text-white px-3 py-1 rounded-full text-sm font-medium shadow-sm`}>
                       {complaint.status}
                     </span>
                   </div>
                   <p className="text-gray-700 mb-2 font-medium">{complaint.snippet}</p>
-                  <p className="text-gray-500 text-sm mb-3">
-                    {new Date(complaint.sentAt).toLocaleDateString()}
-                  </p>
+                  <div className="flex justify-between items-center mb-3">
+                    <p className="text-gray-500 text-sm">
+                      {new Date(complaint.sentAt).toLocaleDateString()}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      {complaint.seenByDepartment ? (
+                        <div className="flex items-center gap-1 text-green-600 text-xs bg-green-50 px-2 py-1 rounded-full">
+                          <Eye className="w-3 h-3" />
+                          <span>Seen by Dept</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1 text-yellow-600 text-xs bg-yellow-50 px-2 py-1 rounded-full">
+                          <EyeOff className="w-3 h-3" />
+                          <span>Unseen by Dept</span>
+                        </div>
+                      )}
+                      {!complaint.seenByStudent && complaint.status === 'REPLIED' && (
+                        <span className="bg-red-600 text-white px-2 py-1 rounded text-xs font-medium">New Reply</span>
+                      )}
+                    </div>
+                  </div>
                   <button
                     onClick={() => navigate(`/student/complaints/${complaint.id}`)}
                     className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
