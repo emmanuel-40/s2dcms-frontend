@@ -1,12 +1,16 @@
 // Landing Page with Image Carousel and Role Switcher
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { GraduationCap, Building2, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
+import { GraduationCap, Building2, ArrowRight, ChevronLeft, ChevronRight, Mail, Send, CheckCircle } from 'lucide-react';
 
 const LandingPage = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [authMode, setAuthMode] = useState('student'); // 'student' or 'department'
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactForm, setContactForm] = useState({ name: '', email: '', message: '' });
+  const [contactSubmitted, setContactSubmitted] = useState(false);
+  const [contactError, setContactError] = useState('');
   const navigate = useNavigate();
 
   // Image carousel slides - user should place images at: frontend/public/images/
@@ -64,6 +68,34 @@ const LandingPage = () => {
     setShowAuthModal(false);
   };
 
+  const handleContactSubmit = async (e) => {
+    e.preventDefault();
+    setContactError('');
+    
+    try {
+      const response = await fetch('http://localhost:8080/api/contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(contactForm),
+      });
+
+      if (response.ok) {
+        setContactSubmitted(true);
+        setContactForm({ name: '', email: '', message: '' });
+        setTimeout(() => {
+          setContactSubmitted(false);
+          setShowContactModal(false);
+        }, 3000);
+      } else {
+        setContactError('Failed to send message. Please try again.');
+      }
+    } catch (error) {
+      setContactError('Network error. Please check your connection.');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
@@ -75,6 +107,13 @@ const LandingPage = () => {
               <h1 className="text-2xl font-bold text-gray-800">S2DCMS</h1>
             </div>
             <div className="flex space-x-4">
+              <button
+                onClick={() => setShowContactModal(true)}
+                className="px-4 py-2 text-gray-600 hover:text-blue-600 font-medium flex items-center space-x-1"
+              >
+                <Mail className="h-4 w-4" />
+                <span>Contact</span>
+              </button>
               <button
                 onClick={() => navigate('/login')}
                 className="px-4 py-2 text-blue-600 hover:text-blue-800 font-medium"
@@ -278,6 +317,79 @@ const LandingPage = () => {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Contact Modal */}
+      {showContactModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Contact Us</h2>
+              <button
+                onClick={() => setShowContactModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {contactSubmitted ? (
+              <div className="text-center py-8">
+                <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">Message Sent!</h3>
+                <p className="text-gray-600">Thank you for contacting us. We'll get back to you soon.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleContactSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={contactForm.name}
+                    onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    placeholder="Your name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={contactForm.email}
+                    onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                    placeholder="your.email@example.com"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+                  <textarea
+                    required
+                    value={contactForm.message}
+                    onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+                    rows={4}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+                    placeholder="How can we help you?"
+                  />
+                </div>
+                {contactError && (
+                  <p className="text-red-600 text-sm">{contactError}</p>
+                )}
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold flex items-center justify-center space-x-2"
+                >
+                  <Send className="h-5 w-5" />
+                  <span>Send Message</span>
+                </button>
+              </form>
+            )}
           </div>
         </div>
       )}
