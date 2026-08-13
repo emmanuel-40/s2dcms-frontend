@@ -153,20 +153,26 @@ const DepartmentDashboard = () => {
               {complaints.map((complaint) => (
                 <div key={complaint.id} className="bg-gray-50 p-4 rounded-lg shadow hover:shadow-md transition-shadow">
                   <div className="flex items-start gap-3 mb-2">
-                    {complaint.profilePicturePath && (
-                      <img
-                        src={`http://localhost:8080${complaint.profilePicturePath}`}
-                        alt="Student Profile"
-                        className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => {
-                          setSelectedProfile({ name: complaint.studentName, email: complaint.studentEmail, regNo: complaint.studentRegNumber, departmentName: complaint.departmentName, profilePicturePath: complaint.profilePicturePath });
-                          setProfileType('student');
-                          setShowProfileModal(true);
-                        }}
-                      />
-                    )}
+                    <div className="flex items-center gap-2">
+                      {complaint.profilePicturePath && (
+                        <img
+                          src={`http://localhost:8080${complaint.profilePicturePath}`}
+                          alt="Student Profile"
+                          className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() => {
+                            setSelectedProfile({ name: complaint.studentName, email: complaint.studentEmail, regNo: complaint.studentRegNumber, departmentName: complaint.departmentName, profilePicturePath: complaint.profilePicturePath });
+                            setProfileType('student');
+                            setShowProfileModal(true);
+                          }}
+                        />
+                      )}
+                      <div className="flex flex-col">
+                        <span className="font-medium text-gray-800 text-sm">{complaint.studentName}</span>
+                        <span className="text-gray-500 text-xs">{complaint.studentRegNumber}</span>
+                      </div>
+                    </div>
                     <div className="flex-1">
-                      <div className="flex justify-between items-center mb-2">
+                      <div className="flex justify-end items-center mb-2">
                         <span className={`${getStatusColor(complaint.status)} text-white px-3 py-1 rounded-full text-sm`}>
                           {complaint.status}
                         </span>

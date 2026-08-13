@@ -1,8 +1,9 @@
-// Complaint Detail Page (Shared for Student and Department)
+// Complaint Detail Page with AI Features
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { studentService } from '../services/studentService';
 import { departmentService } from '../services/departmentService';
+import { studentService } from '../services/studentService';
+import { authService } from '../services/authService';
 import { Eye, EyeOff } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
 import AttachmentModal from '../components/AttachmentModal';
@@ -19,6 +20,11 @@ const ComplaintDetail = ({ userType }) => {
   const [profileType, setProfileType] = useState(null);
   const [showAttachmentModal, setShowAttachmentModal] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState(null);
+  const [aiSummary, setAiSummary] = useState('');
+  const [aiSuggestedReply, setAiSuggestedReply] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [showSuggestedReply, setShowSuggestedReply] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -58,6 +64,72 @@ const ComplaintDetail = ({ userType }) => {
       setError(err.message || 'Failed to close complaint');
     } finally {
       setClosing(false);
+    }
+  };
+
+  const handleSummarize = async () => {
+    setAiLoading(true);
+    try {
+      const token = authService.getAccessToken();
+      const response = await fetch('/api/ai/summarize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ text: complaint.content })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        if (response.status === 503) {
+          setError('AI service is currently unavailable. Please try again later or contact the administrator.');
+        } else {
+          setError('Failed to summarize complaint: ' + errorText);
+        }
+        return;
+      }
+
+      const data = await response.text();
+      setAiSummary(data);
+      setShowSummary(true);
+    } catch (err) {
+      setError('Failed to summarize complaint. Please check your connection and try again.');
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const handleSuggestReply = async () => {
+    setAiLoading(true);
+    try {
+      const token = authService.getAccessToken();
+      const response = await fetch('/api/ai/suggest-reply', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ complaintText: complaint.content })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        if (response.status === 503) {
+          setError('AI service is currently unavailable. Please try again later or contact the administrator.');
+        } else {
+          setError('Failed to suggest reply: ' + errorText);
+        }
+        return;
+      }
+
+      const data = await response.text();
+      setAiSuggestedReply(data);
+      setShowSuggestedReply(true);
+    } catch (err) {
+      setError('Failed to suggest reply. Please check your connection and try again.');
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -133,6 +205,60 @@ const ComplaintDetail = ({ userType }) => {
         <div className="mb-6">
           <h3 className="text-lg font-bold text-gray-800 mb-2">Complaint Description</h3>
           <p className="text-gray-600 leading-relaxed">{complaint.content}</p>
+
+          {userType === 'department' && (
+            <div className="mt-4 p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <h4 className="font-medium text-purple-800 mb-3">AI Assistant</h4>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSummarize}
+                  disabled={aiLoading}
+                  className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:bg-purple-300 disabled:cursor-not-allowed"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                  {aiLoading ? 'Processing...' : 'Summarize'}
+                </button>
+                <button
+                  onClick={handleSuggestReply}
+                  disabled={aiLoading}
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-indigo-300 disabled:cursor-not-allowed"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                  </svg>
+                  {aiLoading ? 'Processing...' : 'Suggest Reply'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {showSummary && aiSummary && (
+            <div className="mt-4 p-4 bg-green-50 rounded-lg border-l-4 border-green-600">
+              <h4 className="font-medium text-green-800 mb-2">AI Summary</h4>
+              <p className="text-gray-700 leading-relaxed">{aiSummary}</p>
+              <button
+                onClick={() => setShowSummary(false)}
+                className="mt-3 text-sm text-green-600 hover:text-green-800 underline"
+              >
+                Hide Summary
+              </button>
+            </div>
+          )}
+
+          {showSuggestedReply && aiSuggestedReply && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-600">
+              <h4 className="font-medium text-blue-800 mb-2">Suggested Reply</h4>
+              <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{aiSuggestedReply}</p>
+              <button
+                onClick={() => setShowSuggestedReply(false)}
+                className="mt-3 text-sm text-blue-600 hover:text-blue-800 underline"
+              >
+                Hide Suggestion
+              </button>
+            </div>
+          )}
           
           {complaint.attachmentPath && (
             <div className="mt-4 p-3 bg-gray-50 rounded-lg">

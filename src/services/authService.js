@@ -125,7 +125,7 @@ class AuthService {
           body: JSON.stringify({ refreshToken: this.refreshToken }),
         });
       } catch (error) {
-        console.error('Logout error:', error);
+        // Logout failed silently - clear tokens anyway
       }
     }
     
@@ -243,7 +243,6 @@ class AuthService {
       const payload = JSON.parse(atob(token.split('.')[1]));
       return payload.role || 'USER';
     } catch (error) {
-      console.error('Failed to extract role from token:', error);
       return 'USER';
     }
   }
