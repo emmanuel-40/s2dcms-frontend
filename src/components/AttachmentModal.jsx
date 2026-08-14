@@ -1,10 +1,11 @@
 import React from 'react';
 import { X, Download } from 'lucide-react';
+import { fileUrl, isImagePath, isPdfPath } from '../utils/files';
 
 const AttachmentModal = ({ isOpen, onClose, attachmentUrl, fileName }) => {
   if (!isOpen || !attachmentUrl) return null;
 
-  const fullUrl = `http://localhost:8080${attachmentUrl}`;
+  const fullUrl = fileUrl(attachmentUrl);
 
   const handleDownload = async () => {
     try {
@@ -25,8 +26,8 @@ const AttachmentModal = ({ isOpen, onClose, attachmentUrl, fileName }) => {
     }
   };
 
-  const isImage = attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i);
-  const isPdf = attachmentUrl.match(/\.pdf$/i);
+  const isImage = isImagePath(attachmentUrl);
+  const isPdf = isPdfPath(attachmentUrl);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">

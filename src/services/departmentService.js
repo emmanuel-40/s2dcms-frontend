@@ -1,5 +1,6 @@
 // Department Service - API calls for department endpoints
 import { apiClient } from './apiClient';
+import { buildComplaintsQuery } from '../utils/complaints';
 
 export const departmentService = {
   // Get department profile
@@ -14,14 +15,7 @@ export const departmentService = {
 
   // Get department complaints
   getComplaints: async (params = {}) => {
-    const { status = 'ALL', sort = 'NEWEST', page = 0, size = 10 } = params;
-    const queryParams = new URLSearchParams({
-      status,
-      sort,
-      page: page.toString(),
-      size: size.toString(),
-    });
-    return await apiClient.get(`/department/complaints?${queryParams}`);
+    return await apiClient.get(`/department/complaints?${buildComplaintsQuery(params)}`);
   },
 
   // Get specific complaint

@@ -3,7 +3,15 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { departmentService } from '../services/departmentService';
+import Alert from '../components/Alert';
+import ComplaintStudentInfo from '../components/ComplaintStudentInfo';
+import LoadingState from '../components/LoadingState';
 import ProfileModal from '../components/ProfileModal';
+import StatusBadge from '../components/StatusBadge';
+import { useLogout } from '../hooks/useLogout';
+import { useProfileModal } from '../hooks/useProfileModal';
+import { fileUrl } from '../utils/files';
+import { formatDate } from '../utils/format';
 
 const DepartmentDashboard = () => {
   const [profile, setProfile] = useState(null);
@@ -17,10 +25,9 @@ const DepartmentDashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState(null);
-  const [profileType, setProfileType] = useState(null);
-  const { logout, getUser } = useAuth();
+  const { getUser } = useAuth();
+  const handleLogout = useLogout();
+  const { openProfile, profileModalProps } = useProfileModal();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,23 +60,8 @@ const DepartmentDashboard = () => {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'PENDING': return 'bg-yellow-500';
-      case 'IN_PROGRESS': return 'bg-cyan-500';
-      case 'REPLIED': return 'bg-green-500';
-      case 'CLOSED': return 'bg-gray-500';
-      default: return 'bg-blue-500';
-    }
-  };
-
   if (loading) {
-    return <div className="flex justify-center items-center min-h-[200px] text-xl text-gray-600">Loading dashboard...</div>;
+    return <LoadingState message="Loading dashboard..." />;
   }
 
   return (
@@ -78,7 +70,7 @@ const DepartmentDashboard = () => {
         <div className="flex items-center gap-4">
           {profile?.departmentProfile && (
             <img
-              src={`http://localhost:8080${profile.departmentProfile}`}
+              src={fileUrl(profile.departmentProfile)}
               alt="Department Profile"
               className="w-12 h-12 rounded-full object-cover border-2 border-gray-300 shadow-sm"
             />
@@ -102,11 +94,7 @@ const DepartmentDashboard = () => {
         </div>
       </header>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 p-3 mx-4 mt-4 rounded">
-          {error}
-        </div>
-      )}
+      {error && <Alert className="mx-4 mt-4">{error}</Alert>}
 
       <div className="p-4 max-w-6xl mx-auto">
         <section className="bg-white p-6 rounded-lg shadow-md mb-6">
@@ -153,36 +141,17 @@ const DepartmentDashboard = () => {
               {complaints.map((complaint) => (
                 <div key={complaint.id} className="bg-gray-50 p-4 rounded-lg shadow hover:shadow-md transition-shadow">
                   <div className="flex items-start gap-3 mb-2">
-                    <div className="flex items-center gap-2">
-                      {complaint.profilePicturePath && (
-                        <img
-                          src={`http://localhost:8080${complaint.profilePicturePath}`}
-                          alt="Student Profile"
-                          className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => {
-                            setSelectedProfile({ name: complaint.studentName, email: complaint.studentEmail, regNo: complaint.studentRegNumber, departmentName: complaint.departmentName, profilePicturePath: complaint.profilePicturePath });
-                            setProfileType('student');
-                            setShowProfileModal(true);
-                          }}
-                        />
-                      )}
-                      <div className="flex flex-col">
-                        <span className="font-medium text-gray-800 text-sm">{complaint.studentName}</span>
-                        <span className="text-gray-500 text-xs">{complaint.studentRegNumber}</span>
-                      </div>
-                    </div>
+                    <ComplaintStudentInfo complaint={complaint} onOpenProfile={openProfile} />
                     <div className="flex-1">
                       <div className="flex justify-end items-center mb-2">
-                        <span className={`${getStatusColor(complaint.status)} text-white px-3 py-1 rounded-full text-sm`}>
-                          {complaint.status}
-                        </span>
+                        <StatusBadge status={complaint.status} />
                       </div>
                       <p className="text-gray-600 mb-2">{complaint.snippet}</p>
                     </div>
                   </div>
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-gray-500 text-sm">
-                      {new Date(complaint.sentAt).toLocaleDateString()}
+                      {formatDate(complaint.sentAt)}
                     </span>
                     {!complaint.seenByDepartment && (
                       <span className="bg-red-600 text-white px-2 py-1 rounded text-xs">New</span>
@@ -200,17 +169,7 @@ const DepartmentDashboard = () => {
           )}
         </section>
 
-        {/* Profile Modal */}
-        <ProfileModal
-          isOpen={showProfileModal}
-          onClose={() => {
-            setShowProfileModal(false);
-            setSelectedProfile(null);
-            setProfileType(null);
-          }}
-          profile={selectedProfile}
-          type={profileType}
-        />
+        <ProfileModal {...profileModalProps} />
       </div>
     </div>
   );

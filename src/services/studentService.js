@@ -1,5 +1,6 @@
 // Student Service - API calls for student endpoints
 import { apiClient } from './apiClient';
+import { buildComplaintsQuery } from '../utils/complaints';
 
 export const studentService = {
   // Get student profile
@@ -19,14 +20,7 @@ export const studentService = {
 
   // Get student complaints
   getComplaints: async (params = {}) => {
-    const { status = 'ALL', sort = 'NEWEST', page = 0, size = 10 } = params;
-    const queryParams = new URLSearchParams({
-      status,
-      sort,
-      page: page.toString(),
-      size: size.toString(),
-    });
-    return await apiClient.get(`/students/complaints?${queryParams}`);
+    return await apiClient.get(`/students/complaints?${buildComplaintsQuery(params)}`);
   },
 
   // Get specific complaint

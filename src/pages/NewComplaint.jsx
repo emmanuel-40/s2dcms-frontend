@@ -2,7 +2,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { studentService } from '../services/studentService';
-import { authService } from '../services/authService';
+import { aiErrorMessage, aiService } from '../services/aiService';
+import Alert from '../components/Alert';
+import AttachmentField from '../components/AttachmentField';
+import { validateAttachment } from '../utils/files';
 
 const NewComplaint = () => {
   const [formData, setFormData] = useState({
@@ -25,9 +28,9 @@ const NewComplaint = () => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check file size (max 20MB as per backend config)
-      if (file.size > 20 * 1024 * 1024) {
-        setError('File size exceeds 20MB limit');
+      const validationError = validateAttachment(file);
+      if (validationError) {
+        setError(validationError);
         return;
       }
       setAttachment(file);
@@ -59,30 +62,9 @@ const NewComplaint = () => {
   const handleGenerateComplaint = async () => {
     setAiLoading(true);
     try {
-      const token = authService.getAccessToken();
-      const response = await fetch('/api/ai/write-complaint', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ situation: aiSituation })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 503) {
-          setError('AI service is currently unavailable. Please try again later or contact the administrator.');
-        } else {
-          setError('Failed to generate complaint: ' + errorText);
-        }
-        return;
-      }
-
-      const data = await response.text();
-      setAiGeneratedComplaint(data);
+      setAiGeneratedComplaint(await aiService.writeComplaint(aiSituation));
     } catch (err) {
-      setError('Failed to generate complaint. Please check your connection and try again.');
+      setError(aiErrorMessage(err, 'Failed to generate complaint'));
     } finally {
       setAiLoading(false);
     }
@@ -111,11 +93,7 @@ const NewComplaint = () => {
         </button>
       </header>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded">
-          {error}
-        </div>
-      )}
+      {error && <Alert>{error}</Alert>}
 
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md">
         <div className="mb-4">
@@ -146,22 +124,7 @@ const NewComplaint = () => {
           />
         </div>
 
-        <div className="mb-4">
-          <label htmlFor="attachment" className="block text-sm font-medium text-gray-700 mb-2">Attachment (optional)</label>
-          <input
-            type="file"
-            id="attachment"
-            onChange={handleFileChange}
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
-          <small className="text-gray-600">Max file size: 20MB. Accepted formats: PDF, JPG, PNG, DOC, DOCX</small>
-          {attachment && (
-            <div className="mt-2 text-blue-600 text-sm">
-              Selected: {attachment.name} ({(attachment.size / 1024 / 1024).toFixed(2)} MB)
-            </div>
-          )}
-        </div>
+        <AttachmentField file={attachment} onChange={handleFileChange} />
 
         <div className="flex gap-4 mt-6">
           <button

@@ -1,7 +1,9 @@
 // Forgot Password Page
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { publicAuthService } from '../services/publicAuthService';
+import Alert from '../components/Alert';
+import { getApiErrorMessage } from '../utils/errors';
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
@@ -16,12 +18,10 @@ const ForgotPasswordPage = () => {
     setLoading(true);
 
     try {
-      await axios.post('http://localhost:8080/api/auth/forgot-password', {
-        email
-      });
+      await publicAuthService.forgotPassword(email);
       setMessage('Password reset link has been sent to your email. Please check your inbox.');
     } catch (err) {
-      setError(err.response?.data || 'Failed to send password reset link. Please try again.');
+      setError(getApiErrorMessage(err, 'Failed to send password reset link. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -33,17 +33,9 @@ const ForgotPasswordPage = () => {
         <h1 className="text-2xl font-bold text-gray-800 mb-2">Forgot Password</h1>
         <p className="text-gray-600 text-sm mb-6">Enter your email to receive a password reset link</p>
         
-        {message && (
-          <div className="bg-green-50 border border-green-200 text-green-600 p-3 rounded mb-4">
-            {message}
-          </div>
-        )}
+        {message && <Alert variant="success">{message}</Alert>}
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded mb-4">
-            {error}
-          </div>
-        )}
+        {error && <Alert>{error}</Alert>}
         
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
