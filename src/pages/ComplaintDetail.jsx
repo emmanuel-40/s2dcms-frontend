@@ -7,6 +7,7 @@ import { authService } from '../services/authService';
 import { Eye, EyeOff } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
 import AttachmentModal from '../components/AttachmentModal';
+import { assetUrl } from '../config';
 
 const ComplaintDetail = ({ userType }) => {
   const { id } = useParams();
@@ -285,7 +286,7 @@ const ComplaintDetail = ({ userType }) => {
               <div className="flex items-center gap-3">
                 {complaint.departmentProfile && (
                   <img
-                    src={`http://localhost:8080${complaint.departmentProfile}`}
+                    src={assetUrl(complaint.departmentProfile)}
                     alt="Department Profile"
                     className="w-10 h-10 rounded-full object-cover border-2 border-blue-300 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
                     onClick={() => {

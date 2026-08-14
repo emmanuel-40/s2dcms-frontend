@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
 import { Eye, EyeOff, Clock } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
+import { assetUrl } from '../config';
 
 const DepartmentComplaints = () => {
   const [complaints, setComplaints] = useState([]);
@@ -114,7 +115,7 @@ const DepartmentComplaints = () => {
                   <div className="flex items-center gap-2">
                     {complaint.profilePicturePath && (
                       <img
-                        src={`http://localhost:8080${complaint.profilePicturePath}`}
+                        src={assetUrl(complaint.profilePicturePath)}
                         alt="Student Profile"
                         className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
                         onClick={() => {

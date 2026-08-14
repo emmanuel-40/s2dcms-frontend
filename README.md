@@ -91,6 +91,17 @@ The frontend is configured to proxy API requests to the backend:
 
 No additional configuration needed if backend runs on default port.
 
+### Environment variables
+
+All backend URLs are resolved through `src/config.js` — no host is hardcoded in
+components. Copy `.env.example` to `.env` to override:
+
+- `VITE_API_BASE_URL` — backend origin for API and static file URLs. Empty (default)
+  means same-origin requests, so production deployments should terminate TLS in front
+  of both the frontend and the backend instead of pointing the browser at plain HTTP.
+- `VITE_BACKEND_PROXY_TARGET` — dev-server proxy target for `/api` (default
+  `http://localhost:8080`).
+
 ## Running the Application
 
 ### Development Mode

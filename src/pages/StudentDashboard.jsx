@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
 import { Eye, EyeOff } from 'lucide-react';
+import { assetUrl } from '../config';
 
 const StudentDashboard = () => {
   const [profile, setProfile] = useState(null);
@@ -80,7 +81,7 @@ const StudentDashboard = () => {
             <div className="flex gap-6 items-center">
               {profile.profilePicturePath && (
                 <img
-                  src={`http://localhost:8080${profile.profilePicturePath}`}
+                  src={assetUrl(profile.profilePicturePath)}
                   alt="Profile"
                   className="w-20 h-20 rounded-full object-cover border-2 border-gray-300 shadow-sm"
                 />

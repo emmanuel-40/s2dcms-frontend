@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import { API_BASE_URL } from '../config';
 
 const VerificationPage = () => {
   const [searchParams] = useSearchParams();
@@ -20,7 +21,7 @@ const VerificationPage = () => {
       }
 
       try {
-        await axios.get(`http://localhost:8080/api/students/auth/verify?token=${token}`);
+        await axios.get(`${API_BASE_URL}/students/auth/verify`, { params: { token } });
         setStatus('success');
         setMessage('Email verified successfully! You can now login.');
       } catch (error) {

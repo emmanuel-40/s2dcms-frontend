@@ -36,3 +36,4 @@ coverage/
 
 # Vite cache
 .vite/
+vite.config.js.timestamp-*

@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
+import { API_BASE_URL } from '../config';
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -65,7 +66,7 @@ const LoginPage = () => {
     setResendMessage('');
 
     try {
-      await axios.post('http://localhost:8080/api/students/auth/resend-verification', {
+      await axios.post(`${API_BASE_URL}/students/auth/resend-verification`, {
         email: formData.email
       });
       setResendMessage('Verification email sent successfully. Please check your inbox.');

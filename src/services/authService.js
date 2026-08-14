@@ -1,7 +1,7 @@
 // Authentication Service - Matches Backend Security Pattern
 // Implements JWT token rotation, refresh token management, and secure storage
 
-const API_BASE_URL = '/api';
+import { API_BASE_URL } from '../config';
 
 class AuthService {
   constructor() {
@@ -9,18 +9,33 @@ class AuthService {
     this.accessToken = null;
     // Refresh token stored in localStorage (in production, use httpOnly cookie)
     this.refreshToken = localStorage.getItem('refreshToken') || null;
-    this.user = JSON.parse(localStorage.getItem('user') || 'null');
+    this.user = this.readStoredUser();
+  }
+
+  // Read the cached user profile. The role is deliberately dropped: it is only
+  // trusted once re-derived from a fresh access token.
+  readStoredUser() {
+    try {
+      const stored = JSON.parse(localStorage.getItem('user') || 'null');
+      if (!stored) return null;
+      const { role, ...rest } = stored;
+      return rest;
+    } catch (error) {
+      return null;
+    }
   }
 
   // Store tokens securely
   setTokens(accessToken, refreshToken, user) {
     this.accessToken = accessToken;
     this.refreshToken = refreshToken;
-    this.user = user;
-    
+    // The role always comes from the (server-signed) access token, never from
+    // the copy persisted in localStorage, which the user can edit.
+    this.user = { ...user, role: this.extractRoleFromToken(accessToken) };
+
     // Only refresh token in localStorage (access token in memory only)
     localStorage.setItem('refreshToken', refreshToken);
-    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('user', JSON.stringify(this.user));
   }
 
   // Clear all tokens on logout
@@ -75,10 +90,7 @@ class AuthService {
     const data = await response.json();
     
     // Store tokens and user info
-    this.setTokens(data.accessToken, data.refreshToken, {
-      email,
-      role: this.extractRoleFromToken(data.accessToken)
-    });
+    this.setTokens(data.accessToken, data.refreshToken, { email });
 
     return data;
   }
@@ -152,7 +164,7 @@ class AuthService {
 
   // Verify email - matches backend /api/students/auth/verify
   async verifyEmail(token) {
-    const response = await fetch(`${API_BASE_URL}/students/auth/verify?token=${token}`, {
+    const response = await fetch(`${API_BASE_URL}/students/auth/verify?token=${encodeURIComponent(token)}`, {
       method: 'GET',
     });
 
@@ -250,7 +262,7 @@ class AuthService {
   // Initialize from localStorage on page load
   initialize() {
     this.refreshToken = localStorage.getItem('refreshToken') || null;
-    this.user = JSON.parse(localStorage.getItem('user') || 'null');
+    this.user = this.readStoredUser();
     // Access token is NOT persisted - must re-authenticate on page refresh
     // This is a security pattern to prevent token theft
   }

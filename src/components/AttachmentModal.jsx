@@ -1,10 +1,11 @@
 import React from 'react';
 import { X, Download } from 'lucide-react';
+import { assetUrl } from '../config';
 
 const AttachmentModal = ({ isOpen, onClose, attachmentUrl, fileName }) => {
-  if (!isOpen || !attachmentUrl) return null;
+  const fullUrl = assetUrl(attachmentUrl);
 
-  const fullUrl = `http://localhost:8080${attachmentUrl}`;
+  if (!isOpen || !fullUrl) return null;
 
   const handleDownload = async () => {
     try {

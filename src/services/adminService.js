@@ -7,11 +7,11 @@ const adminService = {
   },
 
   deleteDepartment: async (id) => {
-    await apiClient.delete(`/department/admin/${id}`);
+    await apiClient.delete(`/department/admin/${encodeURIComponent(id)}`);
   },
 
   updateDepartmentPassword: async (id, newPassword) => {
-    await apiClient.put(`/department/admin/${id}/password`, { newPassword });
+    await apiClient.put(`/department/admin/${encodeURIComponent(id)}/password`, { newPassword });
   },
 
   // Student Management
@@ -20,7 +20,7 @@ const adminService = {
   },
 
   deleteStudent: async (id) => {
-    await apiClient.delete(`/students/admin/${id}`);
+    await apiClient.delete(`/students/admin/${encodeURIComponent(id)}`);
   },
 
   // Get all departments
