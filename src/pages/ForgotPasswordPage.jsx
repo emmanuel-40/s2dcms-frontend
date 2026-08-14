@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { getErrorMessage, logError } from '../utils/errors';
 
 const ForgotPasswordPage = () => {
   const [email, setEmail] = useState('');
@@ -21,7 +22,8 @@ const ForgotPasswordPage = () => {
       });
       setMessage('Password reset link has been sent to your email. Please check your inbox.');
     } catch (err) {
-      setError(err.response?.data || 'Failed to send password reset link. Please try again.');
+      logError('Password reset request failed', err);
+      setError(getErrorMessage(err, 'Failed to send password reset link. Please try again.'));
     } finally {
       setLoading(false);
     }

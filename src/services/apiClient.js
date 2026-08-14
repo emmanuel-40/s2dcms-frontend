@@ -2,8 +2,20 @@
 // Implements token rotation and handles 401 errors gracefully
 
 import { authService } from './authService';
+import { ApiError, NetworkError, parseErrorBody } from '../utils/errors';
 
 const API_BASE_URL = '/api';
+
+const DEFAULT_STATUS_MESSAGES = {
+  400: 'The request was invalid. Please check your input and try again.',
+  401: 'Your session has expired. Please log in again.',
+  403: 'You do not have permission to access this resource.',
+  404: 'Resource not found.',
+  413: 'The uploaded file is too large.',
+  429: 'Too many requests. Please try again later.',
+  500: 'The server encountered an error. Please try again later.',
+  503: 'The service is temporarily unavailable. Please try again later.',
+};
 
 class ApiClient {
   constructor() {
@@ -29,28 +41,40 @@ class ApiClient {
     this.failedQueue.push({ resolve, reject });
   }
 
+  // Perform the network call, mapping transport failures to NetworkError so
+  // callers can tell "server unreachable" apart from "server said no".
+  async fetchOrThrow(url, options) {
+    try {
+      return await fetch(url, options);
+    } catch (networkError) {
+      throw new NetworkError(undefined, { cause: networkError });
+    }
+  }
+
   // Make API request with automatic token refresh
   async request(endpoint, options = {}) {
     const url = `${this.baseURL}${endpoint}`;
-    
+    const accessToken = authService.getAccessToken();
+
     // Add authorization header if access token exists
-    if (authService.getAccessToken()) {
+    if (accessToken && !options.skipAuthCheck) {
       options.headers = {
         ...options.headers,
-        'Authorization': `Bearer ${authService.getAccessToken()}`,
+        'Authorization': `Bearer ${accessToken}`,
       };
     }
 
-    let response = await fetch(url, options);
+    let response = await this.fetchOrThrow(url, options);
 
     // Handle 401 Unauthorized - attempt token refresh
-    if (response.status === 401 && !options.skipAuthRefresh) {
+    if (response.status === 401 && !options.skipAuthRefresh && !options.skipAuthCheck) {
       if (this.isRefreshing) {
-        // Already refreshing - add to queue
-        return new Promise((resolve, reject) => {
+        // Already refreshing - wait for it, then retry once with the new token.
+        // A rejection here (refresh failed) propagates to the caller.
+        await new Promise((resolve, reject) => {
           this.addToQueue(resolve, reject);
-        }).then(() => this.request(endpoint, { ...options, skipAuthRefresh: true }))
-          .catch(err => Promise.reject(err));
+        });
+        return this.request(endpoint, { ...options, skipAuthRefresh: true });
       }
 
       this.isRefreshing = true;
@@ -69,15 +93,22 @@ class ApiClient {
         this.processQueue(null, newAccessToken);
 
         // Retry original request
-        response = await fetch(url, options);
+        response = await this.fetchOrThrow(url, options);
       } catch (refreshError) {
-        // Token refresh failed - clear tokens and process queue with error
         this.processQueue(refreshError, null);
-        authService.clearTokens();
-        
-        // Redirect to login (handled by auth context)
-        window.location.href = '/login';
-        
+
+        // A transport failure says nothing about the validity of the session,
+        // so keep the tokens and let the caller report the network problem
+        if (!(refreshError instanceof NetworkError)) {
+          authService.clearTokens();
+
+          // Redirect to login, unless we are already there (avoids a reload
+          // loop that would wipe the error shown on the login page)
+          if (window.location.pathname !== '/login') {
+            window.location.href = '/login';
+          }
+        }
+
         throw refreshError;
       } finally {
         this.isRefreshing = false;
@@ -91,27 +122,39 @@ class ApiClient {
 
     // Handle other error responses
     if (!response.ok) {
-      const error = await response.json().catch(() => ({ message: 'Request failed' }));
-      
-      // Handle rate limiting (429)
-      if (response.status === 429) {
-        throw new Error(error.message || 'Too many requests. Please try again later.');
-      }
-      
-      // Handle forbidden (403)
-      if (response.status === 403) {
-        throw new Error(error.message || 'You do not have permission to access this resource.');
-      }
-      
-      // Handle not found (404)
-      if (response.status === 404) {
-        throw new Error(error.message || 'Resource not found.');
-      }
-      
-      throw new Error(error.message || 'Request failed');
+      const { message, body } = await parseErrorBody(response);
+      throw new ApiError(
+        message || DEFAULT_STATUS_MESSAGES[response.status] || `Request failed (${response.status})`,
+        { status: response.status, body }
+      );
     }
 
-    return response.json();
+    return this.parseBody(response);
+  }
+
+  // Parse a successful response. Several backend endpoints answer with plain
+  // text or an empty body, so only parse JSON when the body really is JSON.
+  async parseBody(response) {
+    const contentType = response.headers.get('content-type') || '';
+    const text = await response.text();
+
+    if (!text) {
+      return null;
+    }
+
+    if (!contentType.includes('json')) {
+      return text;
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (parseError) {
+      throw new ApiError('Received a malformed response from the server.', {
+        status: response.status,
+        body: text,
+        cause: parseError,
+      });
+    }
   }
 
   // GET request

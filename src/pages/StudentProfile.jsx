@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
+import { getErrorMessage, logError } from '../utils/errors';
 import { User, Camera, ArrowLeft, Save } from 'lucide-react';
 
 const StudentProfile = () => {
@@ -37,7 +38,8 @@ const StudentProfile = () => {
         setImagePreview(null);
       }
     } catch (err) {
-      setError(err.message || 'Failed to load profile');
+      logError('Loading the student profile failed', err);
+      setError(getErrorMessage(err, 'Failed to load profile'));
     } finally {
       setLoading(false);
     }
@@ -80,7 +82,8 @@ const StudentProfile = () => {
       setRemoveProfile(false); // Reset remove profile flag
       await loadProfile();
     } catch (err) {
-      setError(err.message || 'Failed to update profile');
+      logError('Updating the student profile failed', err);
+      setError(getErrorMessage(err, 'Failed to update profile'));
     } finally {
       setSaving(false);
     }

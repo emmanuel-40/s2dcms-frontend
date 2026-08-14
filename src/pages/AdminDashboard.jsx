@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import adminService from '../services/adminService';
+import { getErrorMessage, logError } from '../utils/errors';
 
 const AdminDashboard = () => {
   const { logout } = useAuth();
@@ -38,14 +39,14 @@ const AdminDashboard = () => {
     try {
       if (activeTab === 'departments') {
         const data = await adminService.getAllDepartments();
-        setDepartments(data);
+        setDepartments(Array.isArray(data) ? data : []);
       } else {
         const data = await adminService.getAllStudents();
-        setStudents(data);
+        setStudents(Array.isArray(data) ? data : []);
       }
     } catch (err) {
-      setError('Failed to fetch data');
-      console.error(err);
+      logError('Admin dashboard data fetch failed', err);
+      setError(getErrorMessage(err, 'Failed to fetch data'));
     } finally {
       setLoading(false);
     }
@@ -59,8 +60,8 @@ const AdminDashboard = () => {
       setDeptForm({ departmentName: '', email: '', password: '' });
       fetchData();
     } catch (err) {
-      setError('Failed to create department');
-      console.error(err);
+      logError('Department creation failed', err);
+      setError(getErrorMessage(err, 'Failed to create department'));
     }
   };
 
@@ -79,8 +80,8 @@ const AdminDashboard = () => {
       }
       fetchData();
     } catch (err) {
-      setError(`Failed to delete ${deleteTarget.type}`);
-      console.error(err);
+      logError(`Deleting ${deleteTarget.type} failed`, err);
+      setError(getErrorMessage(err, `Failed to delete ${deleteTarget.type}`));
     }
     setDeleteTarget({ type: null, id: null });
   };
@@ -95,9 +96,9 @@ const AdminDashboard = () => {
       setError(null);
       setTimeout(() => setPasswordSuccess(''), 3000);
     } catch (err) {
-      setError('Failed to update password');
+      logError('Department password update failed', err);
+      setError(getErrorMessage(err, 'Failed to update password'));
       setPasswordSuccess('');
-      console.error(err);
     }
   };
 

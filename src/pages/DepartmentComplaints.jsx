@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
+import { getErrorMessage, logError } from '../utils/errors';
 import { Eye, EyeOff, Clock } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
 
@@ -34,7 +35,8 @@ const DepartmentComplaints = () => {
       setComplaints(data.content || []);
       setTotalPages(data.pageable?.totalPages || 0);
     } catch (err) {
-      setError(err.message || 'Failed to load complaints');
+      logError('Loading department complaints failed', err);
+      setError(getErrorMessage(err, 'Failed to load complaints'));
     } finally {
       setLoading(false);
     }

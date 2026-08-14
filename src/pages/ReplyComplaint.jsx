@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
+import { getErrorMessage, logError } from '../utils/errors';
 
 const ReplyComplaint = () => {
   const { id } = useParams();
@@ -26,7 +27,8 @@ const ReplyComplaint = () => {
         setReply(data.reply);
       }
     } catch (err) {
-      setError(err.message || 'Failed to load complaint');
+      logError(`Loading complaint ${id} failed`, err);
+      setError(getErrorMessage(err, 'Failed to load complaint'));
     } finally {
       setInitialLoading(false);
     }
@@ -59,7 +61,8 @@ const ReplyComplaint = () => {
       await departmentService.replyToComplaint(formDataObj);
       navigate(`/department/complaints/${id}`);
     } catch (err) {
-      setError(err.message || 'Failed to submit reply');
+      logError(`Replying to complaint ${id} failed`, err);
+      setError(getErrorMessage(err, 'Failed to submit reply'));
     } finally {
       setLoading(false);
     }

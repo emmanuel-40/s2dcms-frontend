@@ -1,7 +1,25 @@
 // Authentication Service - Matches Backend Security Pattern
 // Implements JWT token rotation, refresh token management, and secure storage
 
+import { ApiError, NetworkError, logError, parseErrorBody } from '../utils/errors';
+
 const API_BASE_URL = '/api';
+
+// A corrupt "user" entry in localStorage must not crash the app on boot.
+const readStoredUser = () => {
+  const raw = localStorage.getItem('user');
+  if (!raw || raw === 'null') {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    logError('Discarding corrupt stored user', error);
+    localStorage.removeItem('user');
+    return null;
+  }
+};
 
 class AuthService {
   constructor() {
@@ -9,7 +27,24 @@ class AuthService {
     this.accessToken = null;
     // Refresh token stored in localStorage (in production, use httpOnly cookie)
     this.refreshToken = localStorage.getItem('refreshToken') || null;
-    this.user = JSON.parse(localStorage.getItem('user') || 'null');
+    this.user = readStoredUser();
+  }
+
+  // Send a request and surface transport failures as NetworkError
+  async fetchJson(path, options) {
+    let response;
+    try {
+      response = await fetch(`${API_BASE_URL}${path}`, options);
+    } catch (networkError) {
+      throw new NetworkError(undefined, { cause: networkError });
+    }
+    return response;
+  }
+
+  // Throw an ApiError carrying the status and the backend message
+  async throwResponseError(response, fallbackMessage) {
+    const { message, body } = await parseErrorBody(response);
+    throw new ApiError(message || fallbackMessage, { status: response.status, body });
   }
 
   // Store tokens securely
@@ -59,7 +94,7 @@ class AuthService {
 
   // Login - matches backend /api/auth/login
   async login(email, password) {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+    const response = await this.fetchJson('/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -68,12 +103,11 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Login failed');
+      await this.throwResponseError(response, 'Login failed');
     }
 
     const data = await response.json();
-    
+
     // Store tokens and user info
     this.setTokens(data.accessToken, data.refreshToken, {
       email,
@@ -90,7 +124,7 @@ class AuthService {
       throw new Error('No refresh token available');
     }
 
-    const response = await fetch(`${API_BASE_URL}/auth/refresh-token`, {
+    const response = await this.fetchJson('/auth/refresh-token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -99,9 +133,13 @@ class AuthService {
     });
 
     if (!response.ok) {
-      // Token rotation failed - clear tokens and redirect to login
+      // Token rotation failed - clear tokens; the caller redirects to login
       this.clearTokens();
-      throw new Error('Token refresh failed');
+      const { message, body } = await parseErrorBody(response);
+      throw new ApiError(message || 'Your session has expired. Please log in again.', {
+        status: response.status,
+        body,
+      });
     }
 
     const data = await response.json();
@@ -114,27 +152,44 @@ class AuthService {
   }
 
   // Logout - matches backend /api/auth/logout
+  // Local tokens are always cleared, but a failure to revoke the refresh token
+  // on the backend is logged and reported to the caller.
   async logout() {
+    let revokeError = null;
+
     if (this.refreshToken) {
       try {
-        await fetch(`${API_BASE_URL}/auth/logout`, {
+        const response = await fetch(`${API_BASE_URL}/auth/logout`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({ refreshToken: this.refreshToken }),
         });
+
+        if (!response.ok) {
+          const { message } = await parseErrorBody(response);
+          revokeError = new ApiError(message || 'Failed to revoke the session on the server.', {
+            status: response.status,
+          });
+        }
       } catch (error) {
-        // Logout failed silently - clear tokens anyway
+        revokeError = new NetworkError('Failed to reach the server while logging out.', { cause: error });
+      }
+
+      if (revokeError) {
+        logError('Refresh token could not be revoked on logout', revokeError);
       }
     }
-    
+
     this.clearTokens();
+
+    return { revokeError };
   }
 
   // Register student - matches backend /api/students/auth/register
   async registerStudent(userData) {
-    const response = await fetch(`${API_BASE_URL}/students/auth/register`, {
+    const response = await this.fetchJson('/students/auth/register', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -143,8 +198,7 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Registration failed');
+      await this.throwResponseError(response, 'Registration failed');
     }
 
     return await response.text();
@@ -152,13 +206,12 @@ class AuthService {
 
   // Verify email - matches backend /api/students/auth/verify
   async verifyEmail(token) {
-    const response = await fetch(`${API_BASE_URL}/students/auth/verify?token=${token}`, {
+    const response = await this.fetchJson(`/students/auth/verify?token=${encodeURIComponent(token)}`, {
       method: 'GET',
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Email verification failed');
+      await this.throwResponseError(response, 'Email verification failed');
     }
 
     return await response.text();
@@ -166,7 +219,7 @@ class AuthService {
 
   // Resend verification - matches backend /api/students/auth/resend-verification
   async resendVerification(email) {
-    const response = await fetch(`${API_BASE_URL}/students/auth/resend-verification`, {
+    const response = await this.fetchJson('/students/auth/resend-verification', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -175,8 +228,7 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to resend verification');
+      await this.throwResponseError(response, 'Failed to resend verification');
     }
 
     return await response.text();
@@ -184,7 +236,7 @@ class AuthService {
 
   // Forgot password - matches backend /api/auth/forgot-password
   async forgotPassword(email) {
-    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+    const response = await this.fetchJson('/auth/forgot-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -193,8 +245,7 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to send reset email');
+      await this.throwResponseError(response, 'Failed to send reset email');
     }
 
     return await response.text();
@@ -202,7 +253,7 @@ class AuthService {
 
   // Reset password - matches backend /api/auth/reset-password
   async resetPassword(token, newPassword) {
-    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+    const response = await this.fetchJson('/auth/reset-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -211,8 +262,7 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Password reset failed');
+      await this.throwResponseError(response, 'Password reset failed');
     }
 
     return await response.text();
@@ -220,7 +270,7 @@ class AuthService {
 
   // Change password - matches backend /api/user/change-password
   async changePassword(oldPassword, newPassword) {
-    const response = await fetch(`${API_BASE_URL}/user/change-password`, {
+    const response = await this.fetchJson('/user/change-password', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -230,27 +280,29 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Password change failed');
+      await this.throwResponseError(response, 'Password change failed');
     }
 
     return await response.text();
   }
 
   // Extract role from JWT token (for client-side role checking)
+  // Returns null when the token cannot be decoded: an undecodable token must
+  // not be silently treated as a valid role.
   extractRoleFromToken(token) {
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.role || 'USER';
+      return payload.role || null;
     } catch (error) {
-      return 'USER';
+      logError('Could not extract role from access token', error);
+      return null;
     }
   }
 
   // Initialize from localStorage on page load
   initialize() {
     this.refreshToken = localStorage.getItem('refreshToken') || null;
-    this.user = JSON.parse(localStorage.getItem('user') || 'null');
+    this.user = readStoredUser();
     // Access token is NOT persisted - must re-authenticate on page refresh
     // This is a security pattern to prevent token theft
   }

@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { studentService } from '../services/studentService';
+import { getErrorMessage, logError } from '../utils/errors';
 import { Eye, EyeOff, Clock } from 'lucide-react';
 
 const StudentComplaints = () => {
@@ -30,7 +31,8 @@ const StudentComplaints = () => {
       setComplaints(data.content || []);
       setTotalPages(data.pageable?.totalPages || 0);
     } catch (err) {
-      setError(err.message || 'Failed to load complaints');
+      logError('Loading student complaints failed', err);
+      setError(getErrorMessage(err, 'Failed to load complaints'));
     } finally {
       setLoading(false);
     }

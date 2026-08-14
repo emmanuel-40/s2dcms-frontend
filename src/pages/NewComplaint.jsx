@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { studentService } from '../services/studentService';
-import { authService } from '../services/authService';
+import { aiService, describeAiError } from '../services/aiService';
+import { getErrorMessage, logError } from '../utils/errors';
 
 const NewComplaint = () => {
   const [formData, setFormData] = useState({
@@ -50,39 +51,22 @@ const NewComplaint = () => {
       await studentService.sendComplaint(formDataObj);
       navigate('/student/complaints');
     } catch (err) {
-      setError(err.message || 'Failed to submit complaint');
+      logError('Complaint submission failed', err);
+      setError(getErrorMessage(err, 'Failed to submit complaint'));
     } finally {
       setLoading(false);
     }
   };
 
   const handleGenerateComplaint = async () => {
+    setError('');
     setAiLoading(true);
     try {
-      const token = authService.getAccessToken();
-      const response = await fetch('/api/ai/write-complaint', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ situation: aiSituation })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 503) {
-          setError('AI service is currently unavailable. Please try again later or contact the administrator.');
-        } else {
-          setError('Failed to generate complaint: ' + errorText);
-        }
-        return;
-      }
-
-      const data = await response.text();
+      const data = await aiService.writeComplaint(aiSituation);
       setAiGeneratedComplaint(data);
     } catch (err) {
-      setError('Failed to generate complaint. Please check your connection and try again.');
+      logError('AI complaint generation failed', err);
+      setError(describeAiError(err, 'Failed to generate complaint'));
     } finally {
       setAiLoading(false);
     }

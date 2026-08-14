@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { departmentService } from '../services/departmentService';
+import { getErrorMessage, logError } from '../utils/errors';
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -15,6 +16,7 @@ const RegisterPage = () => {
   const [departments, setDepartments] = useState([]);
   const [filteredDepartments, setFilteredDepartments] = useState([]);
   const [loadingDepartments, setLoadingDepartments] = useState(true);
+  const [departmentsError, setDepartmentsError] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -29,10 +31,15 @@ const RegisterPage = () => {
     const fetchDepartments = async () => {
       try {
         const data = await departmentService.getAllDepartments();
-        setDepartments(data);
-        setFilteredDepartments(data);
+        const list = Array.isArray(data) ? data : [];
+        setDepartments(list);
+        setFilteredDepartments(list);
+        setDepartmentsError('');
       } catch (err) {
-        console.error('Failed to fetch departments:', err);
+        logError('Failed to fetch departments', err);
+        setDepartmentsError(
+          getErrorMessage(err, 'Could not load the department list. Please reload the page.')
+        );
       } finally {
         setLoadingDepartments(false);
       }
@@ -70,11 +77,13 @@ const RegisterPage = () => {
       setSuccess(result);
       setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
-      if (err.message.includes('Too many attempts')) {
-        setAttemptsWarning(err.message);
+      logError('Student registration failed', err);
+      const message = getErrorMessage(err, 'Registration failed');
+      if (message.includes('Too many attempts')) {
+        setAttemptsWarning(message);
         setError('Rate limit exceeded. Please wait before trying again.');
       } else {
-        setError(err.message || 'Registration failed');
+        setError(message);
       }
     } finally {
       setLoading(false);
@@ -199,6 +208,10 @@ const RegisterPage = () => {
             {loadingDepartments ? (
               <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500">
                 Loading departments...
+              </div>
+            ) : departmentsError ? (
+              <div className="w-full px-4 py-2 border border-red-200 rounded-lg bg-red-50 text-red-600 text-sm">
+                {departmentsError}
               </div>
             ) : (
               <>

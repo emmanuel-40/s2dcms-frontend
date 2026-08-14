@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GraduationCap, Building2, ArrowRight, ChevronLeft, ChevronRight, Mail, Send, CheckCircle } from 'lucide-react';
+import { logError, parseErrorBody } from '../utils/errors';
 
 const LandingPage = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -89,9 +90,12 @@ const LandingPage = () => {
           setShowContactModal(false);
         }, 3000);
       } else {
-        setContactError('Failed to send message. Please try again.');
+        const { message } = await parseErrorBody(response);
+        logError(`Contact form rejected with status ${response.status}`, message);
+        setContactError(message || 'Failed to send message. Please try again.');
       }
     } catch (error) {
+      logError('Contact form submission failed', error);
       setContactError('Network error. Please check your connection.');
     }
   };
