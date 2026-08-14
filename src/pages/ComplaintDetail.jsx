@@ -3,7 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
 import { studentService } from '../services/studentService';
-import { authService } from '../services/authService';
+import { aiService, describeAiError } from '../services/aiService';
+import { getErrorMessage, logError } from '../utils/errors';
 import { Eye, EyeOff } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
 import AttachmentModal from '../components/AttachmentModal';
@@ -38,7 +39,8 @@ const ComplaintDetail = ({ userType }) => {
       const data = await service.getComplaint(id);
       setComplaint(data);
     } catch (err) {
-      setError(err.message || 'Failed to load complaint');
+      logError(`Loading complaint ${id} failed`, err);
+      setError(getErrorMessage(err, 'Failed to load complaint'));
     } finally {
       setLoading(false);
     }
@@ -61,7 +63,8 @@ const ComplaintDetail = ({ userType }) => {
       setShowCloseModal(false);
       loadComplaint(); // Reload to show updated status
     } catch (err) {
-      setError(err.message || 'Failed to close complaint');
+      logError(`Closing complaint ${id} failed`, err);
+      setError(getErrorMessage(err, 'Failed to close complaint'));
     } finally {
       setClosing(false);
     }
@@ -70,31 +73,12 @@ const ComplaintDetail = ({ userType }) => {
   const handleSummarize = async () => {
     setAiLoading(true);
     try {
-      const token = authService.getAccessToken();
-      const response = await fetch('/api/ai/summarize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ text: complaint.content })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 503) {
-          setError('AI service is currently unavailable. Please try again later or contact the administrator.');
-        } else {
-          setError('Failed to summarize complaint: ' + errorText);
-        }
-        return;
-      }
-
-      const data = await response.text();
+      const data = await aiService.summarize(complaint.content);
       setAiSummary(data);
       setShowSummary(true);
     } catch (err) {
-      setError('Failed to summarize complaint. Please check your connection and try again.');
+      logError('AI summarize failed', err);
+      setError(describeAiError(err, 'Failed to summarize complaint'));
     } finally {
       setAiLoading(false);
     }
@@ -103,31 +87,12 @@ const ComplaintDetail = ({ userType }) => {
   const handleSuggestReply = async () => {
     setAiLoading(true);
     try {
-      const token = authService.getAccessToken();
-      const response = await fetch('/api/ai/suggest-reply', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ complaintText: complaint.content })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 503) {
-          setError('AI service is currently unavailable. Please try again later or contact the administrator.');
-        } else {
-          setError('Failed to suggest reply: ' + errorText);
-        }
-        return;
-      }
-
-      const data = await response.text();
+      const data = await aiService.suggestReply(complaint.content);
       setAiSuggestedReply(data);
       setShowSuggestedReply(true);
     } catch (err) {
-      setError('Failed to suggest reply. Please check your connection and try again.');
+      logError('AI suggest reply failed', err);
+      setError(describeAiError(err, 'Failed to suggest reply'));
     } finally {
       setAiLoading(false);
     }

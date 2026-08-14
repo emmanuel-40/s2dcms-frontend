@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { departmentService } from '../services/departmentService';
+import { getErrorMessage, logError } from '../utils/errors';
 import ProfileModal from '../components/ProfileModal';
 
 const DepartmentDashboard = () => {
@@ -47,7 +48,8 @@ const DepartmentDashboard = () => {
         closed: allComplaints.filter(c => c.status === 'CLOSED').length,
       });
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard data');
+      logError('Loading the department dashboard failed', err);
+      setError(getErrorMessage(err, 'Failed to load dashboard data'));
     } finally {
       setLoading(false);
     }

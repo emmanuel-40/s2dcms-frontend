@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import { getErrorMessage, logError } from '../utils/errors';
 
 const VerificationPage = () => {
   const [searchParams] = useSearchParams();
@@ -24,9 +25,9 @@ const VerificationPage = () => {
         setStatus('success');
         setMessage('Email verified successfully! You can now login.');
       } catch (error) {
+        logError('Email verification failed', error);
         setStatus('error');
-        const errorMessage = error.response?.data?.error || error.response?.data || 'Verification failed. The link may be expired or invalid.';
-        setMessage(errorMessage);
+        setMessage(getErrorMessage(error, 'Verification failed. The link may be expired or invalid.'));
       }
     };
 

@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
+import { getErrorMessage, logError } from '../utils/errors';
 
 const ResetPasswordPage = () => {
   const [searchParams] = useSearchParams();
@@ -52,7 +53,8 @@ const ResetPasswordPage = () => {
         navigate('/login');
       }, 2000);
     } catch (err) {
-      setError(err.response?.data || 'Failed to reset password. Please try again.');
+      logError('Password reset failed', err);
+      setError(getErrorMessage(err, 'Failed to reset password. Please try again.'));
     } finally {
       setLoading(false);
     }

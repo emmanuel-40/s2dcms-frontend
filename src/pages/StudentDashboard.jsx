@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
+import { getErrorMessage, logError } from '../utils/errors';
 import { Eye, EyeOff } from 'lucide-react';
 
 const StudentDashboard = () => {
@@ -27,7 +28,8 @@ const StudentDashboard = () => {
       setProfile(profileData);
       setComplaints(complaintsData.content || []);
     } catch (err) {
-      setError(err.message || 'Failed to load dashboard data');
+      logError('Loading the student dashboard failed', err);
+      setError(getErrorMessage(err, 'Failed to load dashboard data'));
     } finally {
       setLoading(false);
     }

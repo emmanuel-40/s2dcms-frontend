@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { departmentService } from '../services/departmentService';
+import { getErrorMessage, logError } from '../utils/errors';
 import { Building2, Camera, ArrowLeft, Save, Mail } from 'lucide-react';
 
 const DepartmentProfile = () => {
@@ -33,7 +34,8 @@ const DepartmentProfile = () => {
         setImagePreview(null);
       }
     } catch (err) {
-      setError(err.message || 'Failed to load profile');
+      logError('Loading the department profile failed', err);
+      setError(getErrorMessage(err, 'Failed to load profile'));
     } finally {
       setLoading(false);
     }
@@ -71,7 +73,8 @@ const DepartmentProfile = () => {
       setRemoveProfile(false); // Reset remove profile flag
       await loadProfile();
     } catch (err) {
-      setError(err.message || 'Failed to update profile');
+      logError('Updating the department profile failed', err);
+      setError(getErrorMessage(err, 'Failed to update profile'));
     } finally {
       setSaving(false);
     }

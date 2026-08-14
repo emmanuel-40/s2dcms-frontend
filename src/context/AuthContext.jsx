@@ -1,6 +1,7 @@
 // Authentication Context - Manages auth state and role-based access
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '../services/authService';
+import { getErrorMessage, logError } from '../utils/errors';
 
 const AuthContext = createContext(null);
 
@@ -16,6 +17,7 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sessionError, setSessionError] = useState('');
 
   // Initialize auth state on mount
   useEffect(() => {
@@ -30,8 +32,10 @@ export const AuthProvider = ({ children }) => {
           setUser(authService.getUser());
           setIsAuthenticated(true);
         })
-        .catch(() => {
-          // Refresh failed - clear tokens
+        .catch((err) => {
+          // Refresh failed - clear tokens and keep the reason visible
+          logError('Session restore failed', err);
+          setSessionError(getErrorMessage(err, 'Your session has expired. Please log in again.'));
           authService.clearTokens();
           setIsAuthenticated(false);
           setUser(null);
@@ -46,15 +50,28 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const data = await authService.login(email, password);
+    const role = authService.getUserRole();
+
+    if (!role) {
+      // The access token could not be decoded - do not leave the app in a
+      // half-authenticated state with an unknown role
+      authService.clearTokens();
+      throw new Error('Could not determine your account role. Please try logging in again.');
+    }
+
+    setSessionError('');
     setUser(authService.getUser());
     setIsAuthenticated(true);
-    return { ...data, role: authService.getUserRole() };
+    return { ...data, role };
   };
 
+  // Always clears local state; returns the (already logged) error if the
+  // backend session could not be revoked so callers can inform the user.
   const logout = async () => {
-    await authService.logout();
+    const { revokeError } = await authService.logout();
     setUser(null);
     setIsAuthenticated(false);
+    return { revokeError };
   };
 
   const registerStudent = async (userData) => {
@@ -85,6 +102,8 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     user,
     loading,
+    sessionError,
+    clearSessionError: () => setSessionError(''),
     login,
     logout,
     registerStudent,

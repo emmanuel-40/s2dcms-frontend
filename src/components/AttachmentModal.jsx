@@ -1,14 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Download } from 'lucide-react';
+import { ApiError, logError, parseErrorBody } from '../utils/errors';
 
 const AttachmentModal = ({ isOpen, onClose, attachmentUrl, fileName }) => {
+  const [downloadError, setDownloadError] = useState('');
+
   if (!isOpen || !attachmentUrl) return null;
 
   const fullUrl = `http://localhost:8080${attachmentUrl}`;
 
   const handleDownload = async () => {
+    setDownloadError('');
     try {
       const response = await fetch(fullUrl);
+
+      // A failed request still resolves, so without this check the browser
+      // would happily download the error page as the attachment
+      if (!response.ok) {
+        const { message } = await parseErrorBody(response);
+        throw new ApiError(message || `Download failed (${response.status})`, {
+          status: response.status,
+        });
+      }
+
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -19,9 +33,12 @@ const AttachmentModal = ({ isOpen, onClose, attachmentUrl, fileName }) => {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Download failed:', error);
-      // Fallback to opening in new tab if fetch fails
-      window.open(fullUrl, '_blank');
+      logError('Attachment download failed', error);
+      // Fallback to opening in a new tab; tell the user if that is blocked too
+      const opened = window.open(fullUrl, '_blank');
+      if (!opened) {
+        setDownloadError('The attachment could not be downloaded. Please try again.');
+      }
     }
   };
 
@@ -50,6 +67,12 @@ const AttachmentModal = ({ isOpen, onClose, attachmentUrl, fileName }) => {
             </button>
           </div>
         </div>
+
+        {downloadError && (
+          <div className="bg-red-50 border-b border-red-200 text-red-600 px-4 py-3 text-sm">
+            {downloadError}
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 overflow-auto bg-gray-100 p-4 flex items-center justify-center">

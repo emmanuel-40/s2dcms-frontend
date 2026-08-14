@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage, logError } from '../utils/errors';
 import axios from 'axios';
 
 const LoginPage = () => {
@@ -16,7 +17,7 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [attemptsWarning, setAttemptsWarning] = useState('');
-  const { login, getUserRole } = useAuth();
+  const { login, getUserRole, sessionError, clearSessionError } = useAuth();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -29,6 +30,7 @@ const LoginPage = () => {
     setIsEmailNotVerified(false);
     setResendMessage('');
     setAttemptsWarning('');
+    clearSessionError();
     setLoading(true);
 
     try {
@@ -46,14 +48,16 @@ const LoginPage = () => {
         navigate('/login');
       }
     } catch (err) {
-      if (err.message === 'Email not verified') {
+      logError('Login failed', err);
+      const message = getErrorMessage(err, 'Login failed');
+      if (message === 'Email not verified') {
         setIsEmailNotVerified(true);
         setError('Your email is not verified. Please verify your email to login.');
-      } else if (err.message.includes('Too many attempts')) {
-        setAttemptsWarning(err.message);
+      } else if (message.includes('Too many attempts')) {
+        setAttemptsWarning(message);
         setError('Rate limit exceeded. Please wait before trying again.');
       } else {
-        setError(err.message || 'Login failed');
+        setError(message);
       }
     } finally {
       setLoading(false);
@@ -70,7 +74,8 @@ const LoginPage = () => {
       });
       setResendMessage('Verification email sent successfully. Please check your inbox.');
     } catch (err) {
-      setResendMessage(err.response?.data || 'Failed to resend verification email.');
+      logError('Resending the verification email failed', err);
+      setResendMessage(getErrorMessage(err, 'Failed to resend verification email.'));
     } finally {
       setResendLoading(false);
     }
@@ -87,6 +92,12 @@ const LoginPage = () => {
         <h1 className="text-2xl font-bold text-gray-800 mb-2">S2DCMS Login</h1>
         <p className="text-gray-600 text-sm mb-6">Student to Department Complaint Management System</p>
         
+        {!error && sessionError && (
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 p-3 rounded mb-4">
+            {sessionError}
+          </div>
+        )}
+
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded mb-4">
             {error}
