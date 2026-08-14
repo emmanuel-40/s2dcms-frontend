@@ -31,7 +31,7 @@ export const studentService = {
 
   // Get specific complaint
   getComplaint: async (id) => {
-    return await apiClient.get(`/students/complaints/${id}`);
+    return await apiClient.get(`/students/complaints/${encodeURIComponent(id)}`);
   },
 
   // Register student
@@ -41,7 +41,7 @@ export const studentService = {
 
   // Verify email
   verifyEmail: async (token) => {
-    return await apiClient.get(`/students/auth/verify?token=${token}`);
+    return await apiClient.get(`/students/auth/verify?token=${encodeURIComponent(token)}`);
   },
 
   // Resend verification

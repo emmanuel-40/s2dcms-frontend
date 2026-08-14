@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { studentService } from '../services/studentService';
 import { authService } from '../services/authService';
+import { validateAttachment } from '../utils/fileValidation';
 
 const NewComplaint = () => {
   const [formData, setFormData] = useState({
@@ -24,14 +25,18 @@ const NewComplaint = () => {
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      // Check file size (max 20MB as per backend config)
-      if (file.size > 20 * 1024 * 1024) {
-        setError('File size exceeds 20MB limit');
-        return;
-      }
-      setAttachment(file);
+    if (!file) return;
+
+    const validationError = validateAttachment(file);
+    if (validationError) {
+      setError(validationError);
+      e.target.value = '';
+      setAttachment(null);
+      return;
     }
+
+    setError('');
+    setAttachment(file);
   };
 
   const handleSubmit = async (e) => {

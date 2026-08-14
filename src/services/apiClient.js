@@ -2,8 +2,7 @@
 // Implements token rotation and handles 401 errors gracefully
 
 import { authService } from './authService';
-
-const API_BASE_URL = '/api';
+import { API_BASE_URL } from '../config';
 
 class ApiClient {
   constructor() {
@@ -34,7 +33,7 @@ class ApiClient {
     const url = `${this.baseURL}${endpoint}`;
     
     // Add authorization header if access token exists
-    if (authService.getAccessToken()) {
+    if (!options.skipAuth && authService.getAccessToken()) {
       options.headers = {
         ...options.headers,
         'Authorization': `Bearer ${authService.getAccessToken()}`,
@@ -176,9 +175,9 @@ class ApiClient {
     });
   }
 
-  // Public request (no authentication required)
+  // Public request - never attaches the access token or attempts a refresh
   publicRequest(endpoint, options = {}) {
-    return this.request(endpoint, { ...options, skipAuthCheck: true });
+    return this.request(endpoint, { ...options, skipAuth: true, skipAuthRefresh: true });
   }
 }
 

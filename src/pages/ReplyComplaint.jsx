@@ -2,6 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
+import { assetUrl } from '../config';
+import { validateAttachment } from '../utils/fileValidation';
 
 const ReplyComplaint = () => {
   const { id } = useParams();
@@ -34,13 +36,18 @@ const ReplyComplaint = () => {
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > 20 * 1024 * 1024) {
-        setError('File size exceeds 20MB limit');
-        return;
-      }
-      setAttachment(file);
+    if (!file) return;
+
+    const validationError = validateAttachment(file);
+    if (validationError) {
+      setError(validationError);
+      e.target.value = '';
+      setAttachment(null);
+      return;
     }
+
+    setError('');
+    setAttachment(file);
   };
 
   const handleSubmit = async (e) => {
@@ -112,7 +119,7 @@ const ReplyComplaint = () => {
             <div className="p-3 bg-gray-50 rounded-lg">
               <strong className="text-gray-700">Attachment:</strong>
               <a 
-                href={`http://localhost:8080${complaint.attachmentPath}`}
+                href={assetUrl(complaint.attachmentPath)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:text-blue-800 ml-2"
@@ -128,7 +135,7 @@ const ReplyComplaint = () => {
               <p className="leading-relaxed">{complaint.reply}</p>
               {complaint.replyAttachmentPath && (
                 <a 
-                  href={`http://localhost:8080${complaint.replyAttachmentPath}`}
+                  href={assetUrl(complaint.replyAttachmentPath)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 hover:text-blue-800"

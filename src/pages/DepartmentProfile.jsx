@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { departmentService } from '../services/departmentService';
 import { Building2, Camera, ArrowLeft, Save, Mail } from 'lucide-react';
+import { assetUrl } from '../config';
+import { validateProfileImage } from '../utils/fileValidation';
 
 const DepartmentProfile = () => {
   const [profile, setProfile] = useState(null);
@@ -28,7 +30,7 @@ const DepartmentProfile = () => {
       setProfile(profileData);
       // Only set image preview if there's a valid path
       if (profileData.departmentProfile && profileData.departmentProfile !== '') {
-        setImagePreview(`http://localhost:8080${profileData.departmentProfile}`);
+        setImagePreview(assetUrl(profileData.departmentProfile));
       } else {
         setImagePreview(null);
       }
@@ -41,14 +43,23 @@ const DepartmentProfile = () => {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    const validationError = validateProfileImage(file);
+    if (validationError) {
+      setError(validationError);
+      e.target.value = '';
+      setImageFile(null);
+      return;
     }
+
+    setError('');
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = async (e) => {
@@ -145,7 +156,7 @@ const DepartmentProfile = () => {
                 <input
                   type="file"
                   id="image-upload"
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={handleImageChange}
                   className="hidden"
                 />

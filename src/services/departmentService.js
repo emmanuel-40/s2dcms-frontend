@@ -26,7 +26,7 @@ export const departmentService = {
 
   // Get specific complaint
   getComplaint: async (id) => {
-    return await apiClient.get(`/department/complaints/${id}`);
+    return await apiClient.get(`/department/complaints/${encodeURIComponent(id)}`);
   },
 
   // Reply to complaint
@@ -36,7 +36,7 @@ export const departmentService = {
 
   // Close complaint
   closeComplaint: async (complaintId) => {
-    return await apiClient.put(`/department/complaints/${complaintId}/close`);
+    return await apiClient.put(`/department/complaints/${encodeURIComponent(complaintId)}/close`);
   },
 
   // Get all departments (public endpoint for registration)
