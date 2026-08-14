@@ -3,14 +3,21 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
-import { Eye, EyeOff } from 'lucide-react';
+import Alert from '../components/Alert';
+import LoadingState from '../components/LoadingState';
+import SeenBadge from '../components/SeenBadge';
+import StatusBadge from '../components/StatusBadge';
+import { useLogout } from '../hooks/useLogout';
+import { fileUrl } from '../utils/files';
+import { formatDate } from '../utils/format';
 
 const StudentDashboard = () => {
   const [profile, setProfile] = useState(null);
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { logout, getUser } = useAuth();
+  const { getUser } = useAuth();
+  const handleLogout = useLogout();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,23 +40,8 @@ const StudentDashboard = () => {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'PENDING': return 'bg-yellow-500';
-      case 'IN_PROGRESS': return 'bg-cyan-500';
-      case 'REPLIED': return 'bg-green-500';
-      case 'CLOSED': return 'bg-gray-500';
-      default: return 'bg-blue-500';
-    }
-  };
-
   if (loading) {
-    return <div className="flex justify-center items-center min-h-[200px] text-xl text-gray-600">Loading dashboard...</div>;
+    return <LoadingState message="Loading dashboard..." />;
   }
 
   return (
@@ -67,11 +59,7 @@ const StudentDashboard = () => {
         </div>
       </header>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 p-3 mx-4 mt-4 rounded">
-          {error}
-        </div>
-      )}
+      {error && <Alert className="mx-4 mt-4">{error}</Alert>}
 
       <div className="p-4 max-w-6xl mx-auto">
         <section className="bg-white p-6 rounded-lg shadow-md mb-6">
@@ -80,7 +68,7 @@ const StudentDashboard = () => {
             <div className="flex gap-6 items-center">
               {profile.profilePicturePath && (
                 <img
-                  src={`http://localhost:8080${profile.profilePicturePath}`}
+                  src={fileUrl(profile.profilePicturePath)}
                   alt="Profile"
                   className="w-20 h-20 rounded-full object-cover border-2 border-gray-300 shadow-sm"
                 />
@@ -120,27 +108,19 @@ const StudentDashboard = () => {
               {complaints.map((complaint) => (
                 <div key={complaint.id} className="bg-white p-4 rounded-lg border-2 border-blue-200 shadow-sm hover:shadow-md hover:border-blue-400 transition-all">
                   <div className="flex justify-between items-center mb-3">
-                    <span className={`${getStatusColor(complaint.status)} text-white px-3 py-1 rounded-full text-sm font-medium shadow-sm`}>
-                      {complaint.status}
-                    </span>
+                    <StatusBadge status={complaint.status} className="font-medium shadow-sm" />
                   </div>
                   <p className="text-gray-700 mb-2 font-medium">{complaint.snippet}</p>
                   <div className="flex justify-between items-center mb-3">
                     <p className="text-gray-500 text-sm">
-                      {new Date(complaint.sentAt).toLocaleDateString()}
+                      {formatDate(complaint.sentAt)}
                     </p>
                     <div className="flex items-center gap-2">
-                      {complaint.seenByDepartment ? (
-                        <div className="flex items-center gap-1 text-green-600 text-xs bg-green-50 px-2 py-1 rounded-full">
-                          <Eye className="w-3 h-3" />
-                          <span>Seen by Dept</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-yellow-600 text-xs bg-yellow-50 px-2 py-1 rounded-full">
-                          <EyeOff className="w-3 h-3" />
-                          <span>Unseen by Dept</span>
-                        </div>
-                      )}
+                      <SeenBadge
+                        seen={complaint.seenByDepartment}
+                        seenLabel="Seen by Dept"
+                        unseenLabel="Unseen by Dept"
+                      />
                       {!complaint.seenByStudent && complaint.status === 'REPLIED' && (
                         <span className="bg-red-600 text-white px-2 py-1 rounded text-xs font-medium">New Reply</span>
                       )}

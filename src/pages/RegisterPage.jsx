@@ -3,6 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { departmentService } from '../services/departmentService';
+import Alert from '../components/Alert';
+import PasswordInput from '../components/PasswordInput';
+import RateLimitWarning from '../components/RateLimitWarning';
 
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
@@ -18,7 +21,6 @@ const RegisterPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [attemptsWarning, setAttemptsWarning] = useState('');
   const [deptSearch, setDeptSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -91,29 +93,11 @@ const RegisterPage = () => {
         </div>
         <h1 className="text-2xl font-bold text-gray-800 mb-2">Student Registration</h1>
         
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded mb-4">
-            {error}
-          </div>
-        )}
+        {error && <Alert>{error}</Alert>}
 
-        {attemptsWarning && (
-          <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 p-3 rounded mb-4">
-            <div className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="8" x2="12" y2="12"/>
-                <line x1="12" y1="16" x2="12.01" y2="16"/>
-              </svg>
-              <span className="font-medium">{attemptsWarning}</span>
-            </div>
-          </div>
-        )}
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-600 p-3 rounded mb-4">
-            {success}
-          </div>
-        )}
+        <RateLimitWarning message={attemptsWarning} />
+
+        {success && <Alert variant="success">{success}</Alert>}
         
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -157,41 +141,7 @@ const RegisterPage = () => {
           
           <div className="mb-4">
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">Password (min 6 characters)</label>
-            <div className="relative">
-              <input
-                type="text"
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                minLength="6"
-                required
-                autoComplete="off"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none pr-10"
-                style={{
-                  WebkitTextSecurity: showPassword ? 'none' : 'disc'
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 focus:outline-none"
-              >
-                {showPassword ? (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
-                    <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c4.478 0 8.268 2.943 9.543 7a10.06 10.06 0 0 1-4.132 5.411"/>
-                    <path d="M3 3l3.59 3.59m0 0A9.953 9.953 0 0 1 12 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 0 1-4.132 5.411m0 0L21 21"/>
-                    <path d="M14.12 14.12a3 3 0 1 0-4.24-4.24"/>
-                  </svg>
-                ) : (
-                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
-                    <circle cx="12" cy="12" r="3"/>
-                  </svg>
-                )}
-              </button>
-            </div>
+            <PasswordInput value={formData.password} onChange={handleChange} minLength="6" />
           </div>
           
           <div className="mb-6">

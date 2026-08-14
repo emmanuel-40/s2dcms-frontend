@@ -1,7 +1,8 @@
 // Email Verification Page
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import axios from 'axios';
+import { publicAuthService } from '../services/publicAuthService';
+import { getApiErrorMessage } from '../utils/errors';
 
 const VerificationPage = () => {
   const [searchParams] = useSearchParams();
@@ -20,13 +21,12 @@ const VerificationPage = () => {
       }
 
       try {
-        await axios.get(`http://localhost:8080/api/students/auth/verify?token=${token}`);
+        await publicAuthService.verifyEmail(token);
         setStatus('success');
         setMessage('Email verified successfully! You can now login.');
       } catch (error) {
         setStatus('error');
-        const errorMessage = error.response?.data?.error || error.response?.data || 'Verification failed. The link may be expired or invalid.';
-        setMessage(errorMessage);
+        setMessage(getApiErrorMessage(error, 'Verification failed. The link may be expired or invalid.'));
       }
     };
 

@@ -2,6 +2,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
+import Alert from '../components/Alert';
+import AttachmentField from '../components/AttachmentField';
+import LoadingState from '../components/LoadingState';
+import { fileUrl, validateAttachment } from '../utils/files';
+import { formatDateTime } from '../utils/format';
 
 const ReplyComplaint = () => {
   const { id } = useParams();
@@ -35,8 +40,9 @@ const ReplyComplaint = () => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 20 * 1024 * 1024) {
-        setError('File size exceeds 20MB limit');
+      const validationError = validateAttachment(file);
+      if (validationError) {
+        setError(validationError);
         return;
       }
       setAttachment(file);
@@ -66,12 +72,12 @@ const ReplyComplaint = () => {
   };
 
   if (initialLoading) {
-    return <div className="flex justify-center items-center min-h-[200px] text-xl text-gray-600">Loading complaint...</div>;
+    return <LoadingState message="Loading complaint..." />;
   }
 
   if (error && !complaint) {
     return <div className="max-w-2xl mx-auto mt-8 text-center">
-      <div className="bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded">{error}</div>
+      <Alert>{error}</Alert>
       <button 
         onClick={() => navigate('/department/complaints')}
         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -93,18 +99,14 @@ const ReplyComplaint = () => {
         </button>
       </header>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded">
-          {error}
-        </div>
-      )}
+      {error && <Alert>{error}</Alert>}
 
       {complaint && (
         <div className="bg-white p-6 rounded-lg shadow-md mb-6">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Original Complaint</h3>
           <p className="mb-2"><strong>Title:</strong> {complaint.title}</p>
           <p className="mb-2"><strong>From:</strong> {complaint.studentName} ({complaint.studentRegNumber})</p>
-          <p className="mb-2"><strong>Submitted:</strong> {new Date(complaint.sentAt).toLocaleString()}</p>
+          <p className="mb-2"><strong>Submitted:</strong> {formatDateTime(complaint.sentAt)}</p>
           <p className="mb-2"><strong>Description:</strong></p>
           <p className="bg-gray-50 p-4 rounded-lg mb-4 leading-relaxed">{complaint.content}</p>
           
@@ -112,7 +114,7 @@ const ReplyComplaint = () => {
             <div className="p-3 bg-gray-50 rounded-lg">
               <strong className="text-gray-700">Attachment:</strong>
               <a 
-                href={`http://localhost:8080${complaint.attachmentPath}`}
+                href={fileUrl(complaint.attachmentPath)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-600 hover:text-blue-800 ml-2"
@@ -128,7 +130,7 @@ const ReplyComplaint = () => {
               <p className="leading-relaxed">{complaint.reply}</p>
               {complaint.replyAttachmentPath && (
                 <a 
-                  href={`http://localhost:8080${complaint.replyAttachmentPath}`}
+                  href={fileUrl(complaint.replyAttachmentPath)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 hover:text-blue-800"
@@ -155,22 +157,7 @@ const ReplyComplaint = () => {
           />
         </div>
 
-        <div className="mb-4">
-          <label htmlFor="attachment" className="block text-sm font-medium text-gray-700 mb-2">Attachment (optional)</label>
-          <input
-            type="file"
-            id="attachment"
-            onChange={handleFileChange}
-            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-          />
-          <small className="text-gray-600">Max file size: 20MB. Accepted formats: PDF, JPG, PNG, DOC, DOCX</small>
-          {attachment && (
-            <div className="mt-2 text-blue-600 text-sm">
-              Selected: {attachment.name} ({(attachment.size / 1024 / 1024).toFixed(2)} MB)
-            </div>
-          )}
-        </div>
+        <AttachmentField file={attachment} onChange={handleFileChange} />
 
         <div className="flex gap-4 mt-6">
           <button 

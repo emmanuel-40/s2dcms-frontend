@@ -3,10 +3,17 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
 import { studentService } from '../services/studentService';
-import { authService } from '../services/authService';
-import { Eye, EyeOff } from 'lucide-react';
+import { aiErrorMessage, aiService } from '../services/aiService';
+import Alert from '../components/Alert';
+import LoadingState from '../components/LoadingState';
 import ProfileModal from '../components/ProfileModal';
 import AttachmentModal from '../components/AttachmentModal';
+import SeenBadge from '../components/SeenBadge';
+import StatusBadge from '../components/StatusBadge';
+import { useProfileModal } from '../hooks/useProfileModal';
+import { departmentProfileFromComplaint } from '../utils/complaints';
+import { fileUrl } from '../utils/files';
+import { formatDateTime } from '../utils/format';
 
 const ComplaintDetail = ({ userType }) => {
   const { id } = useParams();
@@ -15,9 +22,6 @@ const ComplaintDetail = ({ userType }) => {
   const [error, setError] = useState('');
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closing, setClosing] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false);
-  const [selectedProfile, setSelectedProfile] = useState(null);
-  const [profileType, setProfileType] = useState(null);
   const [showAttachmentModal, setShowAttachmentModal] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState(null);
   const [aiSummary, setAiSummary] = useState('');
@@ -25,6 +29,7 @@ const ComplaintDetail = ({ userType }) => {
   const [aiLoading, setAiLoading] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showSuggestedReply, setShowSuggestedReply] = useState(false);
+  const { openProfile, profileModalProps } = useProfileModal();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,16 +49,6 @@ const ComplaintDetail = ({ userType }) => {
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'PENDING': return 'bg-yellow-500';
-      case 'IN_PROGRESS': return 'bg-cyan-500';
-      case 'REPLIED': return 'bg-green-500';
-      case 'CLOSED': return 'bg-gray-500';
-      default: return 'bg-blue-500';
-    }
-  };
-
   const handleCloseComplaint = async () => {
     setClosing(true);
     try {
@@ -70,31 +65,10 @@ const ComplaintDetail = ({ userType }) => {
   const handleSummarize = async () => {
     setAiLoading(true);
     try {
-      const token = authService.getAccessToken();
-      const response = await fetch('/api/ai/summarize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ text: complaint.content })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 503) {
-          setError('AI service is currently unavailable. Please try again later or contact the administrator.');
-        } else {
-          setError('Failed to summarize complaint: ' + errorText);
-        }
-        return;
-      }
-
-      const data = await response.text();
-      setAiSummary(data);
+      setAiSummary(await aiService.summarize(complaint.content));
       setShowSummary(true);
     } catch (err) {
-      setError('Failed to summarize complaint. Please check your connection and try again.');
+      setError(aiErrorMessage(err, 'Failed to summarize complaint'));
     } finally {
       setAiLoading(false);
     }
@@ -103,43 +77,22 @@ const ComplaintDetail = ({ userType }) => {
   const handleSuggestReply = async () => {
     setAiLoading(true);
     try {
-      const token = authService.getAccessToken();
-      const response = await fetch('/api/ai/suggest-reply', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ complaintText: complaint.content })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 503) {
-          setError('AI service is currently unavailable. Please try again later or contact the administrator.');
-        } else {
-          setError('Failed to suggest reply: ' + errorText);
-        }
-        return;
-      }
-
-      const data = await response.text();
-      setAiSuggestedReply(data);
+      setAiSuggestedReply(await aiService.suggestReply(complaint.content));
       setShowSuggestedReply(true);
     } catch (err) {
-      setError('Failed to suggest reply. Please check your connection and try again.');
+      setError(aiErrorMessage(err, 'Failed to suggest reply'));
     } finally {
       setAiLoading(false);
     }
   };
 
   if (loading) {
-    return <div className="flex justify-center items-center min-h-[200px] text-xl text-gray-600">Loading complaint details...</div>;
+    return <LoadingState message="Loading complaint details..." />;
   }
 
   if (error) {
     return <div className="max-w-2xl mx-auto mt-8 text-center">
-      <div className="bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded">{error}</div>
+      <Alert>{error}</Alert>
       <button 
         onClick={() => navigate(userType === 'student' ? '/student/complaints' : '/department/complaints')}
         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -168,15 +121,13 @@ const ComplaintDetail = ({ userType }) => {
       <div className="bg-white p-6 rounded-lg shadow-md">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-gray-800">{complaint.title}</h2>
-          <span className={`${getStatusColor(complaint.status)} text-white px-3 py-1 rounded-full text-sm`}>
-            {complaint.status}
-          </span>
+          <StatusBadge status={complaint.status} />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6 p-4 bg-gray-50 rounded-lg">
           <div>
             <h3 className="text-sm text-gray-600 mb-1">Submitted</h3>
-            <p>{new Date(complaint.sentAt).toLocaleString()}</p>
+            <p>{formatDateTime(complaint.sentAt)}</p>
           </div>
 
           {userType === 'department' && complaint.studentName && (
@@ -197,7 +148,7 @@ const ComplaintDetail = ({ userType }) => {
           {complaint.repliedAt && (
             <div>
               <h3 className="text-sm text-gray-600 mb-1">Replied</h3>
-              <p>{new Date(complaint.repliedAt).toLocaleString()}</p>
+              <p>{formatDateTime(complaint.repliedAt)}</p>
             </div>
           )}
         </div>
@@ -285,31 +236,21 @@ const ComplaintDetail = ({ userType }) => {
               <div className="flex items-center gap-3">
                 {complaint.departmentProfile && (
                   <img
-                    src={`http://localhost:8080${complaint.departmentProfile}`}
+                    src={fileUrl(complaint.departmentProfile)}
                     alt="Department Profile"
                     className="w-10 h-10 rounded-full object-cover border-2 border-blue-300 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => {
-                      setSelectedProfile({ departmentName: complaint.departmentName, email: complaint.departmentEmail, departmentProfile: complaint.departmentProfile });
-                      setProfileType('department');
-                      setShowProfileModal(true);
-                    }}
+                    onClick={() => openProfile(departmentProfileFromComplaint(complaint), 'department')}
                   />
                 )}
                 <h3 className="text-lg font-bold text-gray-800">Department Response</h3>
               </div>
               {userType === 'department' && (
                 <div className="flex items-center gap-1 text-xs">
-                  {complaint.seenByStudent ? (
-                    <div className="flex items-center gap-1 text-green-600 bg-green-100 px-2 py-1 rounded-full">
-                      <Eye className="w-3 h-3" />
-                      <span>Seen</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 text-yellow-600 bg-yellow-100 px-2 py-1 rounded-full">
-                      <EyeOff className="w-3 h-3" />
-                      <span>Not yet seen</span>
-                    </div>
-                  )}
+                  <SeenBadge
+                    seen={complaint.seenByStudent}
+                    unseenLabel="Not yet seen"
+                    tone="strong"
+                  />
                 </div>
               )}
             </div>
@@ -380,17 +321,7 @@ const ComplaintDetail = ({ userType }) => {
         </div>
       )}
 
-      {/* Profile Modal */}
-      <ProfileModal
-        isOpen={showProfileModal}
-        onClose={() => {
-          setShowProfileModal(false);
-          setSelectedProfile(null);
-          setProfileType(null);
-        }}
-        profile={selectedProfile}
-        type={profileType}
-      />
+      <ProfileModal {...profileModalProps} />
 
       {/* Attachment Modal */}
       <AttachmentModal

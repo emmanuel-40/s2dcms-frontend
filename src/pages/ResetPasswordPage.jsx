@@ -1,7 +1,9 @@
 // Reset Password Page
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import axios from 'axios';
+import { publicAuthService } from '../services/publicAuthService';
+import Alert from '../components/Alert';
+import { getApiErrorMessage } from '../utils/errors';
 
 const ResetPasswordPage = () => {
   const [searchParams] = useSearchParams();
@@ -43,16 +45,13 @@ const ResetPasswordPage = () => {
     setLoading(true);
 
     try {
-      await axios.post('http://localhost:8080/api/auth/reset-password', {
-        token: token,
-        newPassword: formData.newPassword
-      });
+      await publicAuthService.resetPassword(token, formData.newPassword);
       setMessage('Password reset successful. Redirecting to login...');
       setTimeout(() => {
         navigate('/login');
       }, 2000);
     } catch (err) {
-      setError(err.response?.data || 'Failed to reset password. Please try again.');
+      setError(getApiErrorMessage(err, 'Failed to reset password. Please try again.'));
     } finally {
       setLoading(false);
     }
@@ -64,17 +63,9 @@ const ResetPasswordPage = () => {
         <h1 className="text-2xl font-bold text-gray-800 mb-2">Reset Password</h1>
         <p className="text-gray-600 text-sm mb-6">Enter your new password below</p>
         
-        {message && (
-          <div className="bg-green-50 border border-green-200 text-green-600 p-3 rounded mb-4">
-            {message}
-          </div>
-        )}
+        {message && <Alert variant="success">{message}</Alert>}
 
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded mb-4">
-            {error}
-          </div>
-        )}
+        {error && <Alert>{error}</Alert>}
         
         <form onSubmit={handleSubmit}>
           <div className="mb-4">

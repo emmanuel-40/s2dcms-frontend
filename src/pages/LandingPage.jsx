@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GraduationCap, Building2, ArrowRight, ChevronLeft, ChevronRight, Mail, Send, CheckCircle } from 'lucide-react';
+import { BACKEND_API_URL } from '../utils/constants';
 
 const LandingPage = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -73,7 +74,7 @@ const LandingPage = () => {
     setContactError('');
     
     try {
-      const response = await fetch('http://localhost:8080/api/contact', {
+      const response = await fetch(`${BACKEND_API_URL}/contact`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
