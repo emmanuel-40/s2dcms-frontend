@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
+import { validateFile } from '../utils/fileValidation';
 
 const ReplyComplaint = () => {
   const { id } = useParams();
@@ -35,8 +36,9 @@ const ReplyComplaint = () => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 20 * 1024 * 1024) {
-        setError('File size exceeds 20MB limit');
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        setError(validation.error);
         return;
       }
       setAttachment(file);

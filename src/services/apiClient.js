@@ -2,8 +2,7 @@
 // Implements token rotation and handles 401 errors gracefully
 
 import { authService } from './authService';
-
-const API_BASE_URL = '/api';
+import { API_BASE_URL } from '../config';
 
 class ApiClient {
   constructor() {
@@ -178,7 +177,7 @@ class ApiClient {
 
   // Public request (no authentication required)
   publicRequest(endpoint, options = {}) {
-    return this.request(endpoint, { ...options, skipAuthCheck: true });
+    return this.request(endpoint, { ...options, skipAuthRefresh: true });
   }
 }
 

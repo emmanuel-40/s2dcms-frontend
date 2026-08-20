@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
 import { User, Camera, ArrowLeft, Save } from 'lucide-react';
+import { validateImage } from '../utils/fileValidation';
+import { assetUrl } from '../config';
 
 const StudentProfile = () => {
   const [profile, setProfile] = useState(null);
@@ -32,7 +34,8 @@ const StudentProfile = () => {
       setFormData({ name: profileData.name });
       // Only set image preview if there's a valid path
       if (profileData.profilePicturePath && profileData.profilePicturePath !== '') {
-        setImagePreview(`http://localhost:8080${profileData.profilePicturePath}`);
+        const url = assetUrl(profileData.profilePicturePath);
+        setImagePreview(url);
       } else {
         setImagePreview(null);
       }
@@ -46,6 +49,11 @@ const StudentProfile = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      const validation = validateImage(file);
+      if (!validation.valid) {
+        setError(validation.error);
+        return;
+      }
       setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {

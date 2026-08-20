@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { departmentService } from '../services/departmentService';
 import { Building2, Camera, ArrowLeft, Save, Mail } from 'lucide-react';
+import { validateImage } from '../utils/fileValidation';
+import { assetUrl } from '../config';
 
 const DepartmentProfile = () => {
   const [profile, setProfile] = useState(null);
@@ -28,7 +30,8 @@ const DepartmentProfile = () => {
       setProfile(profileData);
       // Only set image preview if there's a valid path
       if (profileData.departmentProfile && profileData.departmentProfile !== '') {
-        setImagePreview(`http://localhost:8080${profileData.departmentProfile}`);
+        const url = assetUrl(profileData.departmentProfile);
+        setImagePreview(url);
       } else {
         setImagePreview(null);
       }
@@ -42,6 +45,11 @@ const DepartmentProfile = () => {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      const validation = validateImage(file);
+      if (!validation.valid) {
+        setError(validation.error);
+        return;
+      }
       setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {

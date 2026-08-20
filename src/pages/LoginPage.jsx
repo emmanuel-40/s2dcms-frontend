@@ -1,5 +1,5 @@
 // Login Page
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
@@ -16,8 +16,22 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [attemptsWarning, setAttemptsWarning] = useState('');
-  const { login, getUserRole } = useAuth();
+  const { login, getUserRole, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const role = getUserRole();
+      if (role === 'STUDENT') {
+        navigate('/student/dashboard');
+      } else if (role === 'DEPARTMENT') {
+        navigate('/department/dashboard');
+      } else if (role === 'ADMIN') {
+        navigate('/admin/dashboard');
+      }
+    }
+  }, [isAuthenticated, user, getUserRole, navigate]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });

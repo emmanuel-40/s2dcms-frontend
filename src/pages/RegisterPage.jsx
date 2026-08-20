@@ -22,8 +22,22 @@ const RegisterPage = () => {
   const [attemptsWarning, setAttemptsWarning] = useState('');
   const [deptSearch, setDeptSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
-  const { registerStudent } = useAuth();
+  const { registerStudent, isAuthenticated, user, getUserRole } = useAuth();
   const navigate = useNavigate();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const role = getUserRole();
+      if (role === 'STUDENT') {
+        navigate('/student/dashboard');
+      } else if (role === 'DEPARTMENT') {
+        navigate('/department/dashboard');
+      } else if (role === 'ADMIN') {
+        navigate('/admin/dashboard');
+      }
+    }
+  }, [isAuthenticated, user, getUserRole, navigate]);
 
   useEffect(() => {
     const fetchDepartments = async () => {

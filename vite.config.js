@@ -9,13 +9,6 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
-        secure: false,
-        configure: (proxy, options) => {
-          proxy.on('proxyReq', (proxyReq, req, res) => {
-            console.log('Proxying request:', req.method, req.url);
-            console.log('Authorization header:', req.headers['authorization']);
-          });
-        }
       }
     }
   }

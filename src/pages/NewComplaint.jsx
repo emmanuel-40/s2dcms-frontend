@@ -25,9 +25,9 @@ const NewComplaint = () => {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check file size (max 20MB as per backend config)
-      if (file.size > 20 * 1024 * 1024) {
-        setError('File size exceeds 20MB limit');
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        setError(validation.error);
         return;
       }
       setAttachment(file);
@@ -89,10 +89,31 @@ const NewComplaint = () => {
   };
 
   const handleUseGeneratedComplaint = () => {
+    // Parse the AI response to extract title and content
+    const lines = aiGeneratedComplaint.split('\n');
+    let title = '';
+    let content = '';
+
+    // Find TITLE line and extract title
+    const titleLineIndex = lines.findIndex(line => line.trim().startsWith('TITLE:'));
+    if (titleLineIndex !== -1) {
+      title = lines[titleLineIndex].replace('TITLE:', '').trim();
+    }
+
+    // Find CONTENT line and extract content (everything after CONTENT:)
+    const contentLineIndex = lines.findIndex(line => line.trim().startsWith('CONTENT:'));
+    if (contentLineIndex !== -1) {
+      // Get everything after "CONTENT:" on the same line
+      const contentLine = lines[contentLineIndex].split('CONTENT:')[1]?.trim() || '';
+      // Add all lines after the CONTENT line
+      const remainingLines = lines.slice(contentLineIndex + 1).join('\n').trim();
+      content = contentLine + (remainingLines ? '\n' + remainingLines : '');
+    }
+
     setFormData({
       ...formData,
-      content: aiGeneratedComplaint,
-      title: aiGeneratedComplaint.split('\n')[0].substring(0, 50) + '...'
+      title: title || 'Complaint',
+      content: content || aiGeneratedComplaint
     });
     setShowAiModal(false);
     setAiSituation('');

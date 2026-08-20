@@ -148,6 +148,8 @@ npm run preview
 - View complaint history with status tracking
 - Filter complaints by status
 - Sort complaints by date
+- **AI-Powered Features**:
+  - Complaint Writing Assistant: Help write formal complaints with AI-generated title and content
 
 ### Department Features
 - Dashboard with complaint statistics
@@ -156,6 +158,9 @@ npm run preview
 - Close complaints
 - Filter complaints by status
 - Sort complaints by date
+- **AI-Powered Features**:
+  - Complaint Summarization: Auto-generate bullet point summaries
+  - Reply Suggestions: Get AI-suggested professional responses with copy button
 
 ### Security Features
 - JWT-based authentication
@@ -211,7 +216,7 @@ The frontend integrates with the following backend endpoints:
 ### Authentication Issues
 - Check that JWT secret matches backend configuration
 - Verify token expiration times (15 min access, 24 hour refresh)
-- Ensure Redis is running for refresh token storage
+- Ensure PostgreSQL is available for refresh token storage
 
 ### File Upload Issues
 - Verify file size limits (max 20MB)

@@ -16,11 +16,14 @@ class AuthService {
   setTokens(accessToken, refreshToken, user) {
     this.accessToken = accessToken;
     this.refreshToken = refreshToken;
-    this.user = user;
+    // Derive role from token instead of trusting user object
+    this.user = { ...user, role: this.extractRoleFromToken(accessToken) };
     
     // Only refresh token in localStorage (access token in memory only)
     localStorage.setItem('refreshToken', refreshToken);
-    localStorage.setItem('user', JSON.stringify(user));
+    // Store user without role - role will be derived from token on load
+    const { role, ...userWithoutRole } = user;
+    localStorage.setItem('user', JSON.stringify(userWithoutRole));
   }
 
   // Clear all tokens on logout
@@ -152,7 +155,7 @@ class AuthService {
 
   // Verify email - matches backend /api/students/auth/verify
   async verifyEmail(token) {
-    const response = await fetch(`${API_BASE_URL}/students/auth/verify?token=${token}`, {
+    const response = await fetch(`${API_BASE_URL}/students/auth/verify?token=${encodeURIComponent(token)}`, {
       method: 'GET',
     });
 
@@ -207,7 +210,7 @@ class AuthService {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ token, newPassword }),
+      body: JSON.stringify({ token: encodeURIComponent(token), newPassword }),
     });
 
     if (!response.ok) {
@@ -250,7 +253,9 @@ class AuthService {
   // Initialize from localStorage on page load
   initialize() {
     this.refreshToken = localStorage.getItem('refreshToken') || null;
-    this.user = JSON.parse(localStorage.getItem('user') || 'null');
+    // Read user without role - role will be derived from token
+    const storedUser = JSON.parse(localStorage.getItem('user') || 'null');
+    this.user = storedUser || null;
     // Access token is NOT persisted - must re-authenticate on page refresh
     // This is a security pattern to prevent token theft
   }

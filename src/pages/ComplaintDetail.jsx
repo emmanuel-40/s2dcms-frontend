@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
 import { studentService } from '../services/studentService';
 import { authService } from '../services/authService';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Copy, Check } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
 import AttachmentModal from '../components/AttachmentModal';
 
@@ -25,6 +25,7 @@ const ComplaintDetail = ({ userType }) => {
   const [aiLoading, setAiLoading] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
   const [showSuggestedReply, setShowSuggestedReply] = useState(false);
+  const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -131,6 +132,12 @@ const ComplaintDetail = ({ userType }) => {
     } finally {
       setAiLoading(false);
     }
+  };
+
+  const handleCopyReply = () => {
+    navigator.clipboard.writeText(aiSuggestedReply);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   if (loading) {
@@ -249,7 +256,17 @@ const ComplaintDetail = ({ userType }) => {
 
           {showSuggestedReply && aiSuggestedReply && (
             <div className="mt-4 p-4 bg-blue-50 rounded-lg border-l-4 border-blue-600">
-              <h4 className="font-medium text-blue-800 mb-2">Suggested Reply</h4>
+              <div className="flex justify-between items-start mb-2">
+                <h4 className="font-medium text-blue-800">Suggested Reply</h4>
+                <button
+                  onClick={handleCopyReply}
+                  className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 transition-colors"
+                  title="Copy to clipboard"
+                >
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
               <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{aiSuggestedReply}</p>
               <button
                 onClick={() => setShowSuggestedReply(false)}

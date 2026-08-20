@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Download } from 'lucide-react';
+import { X, Download, FileText, ExternalLink } from 'lucide-react';
 
 const AttachmentModal = ({ isOpen, onClose, attachmentUrl, fileName }) => {
   if (!isOpen || !attachmentUrl) return null;
@@ -25,8 +25,23 @@ const AttachmentModal = ({ isOpen, onClose, attachmentUrl, fileName }) => {
     }
   };
 
+  const handleOpenInNewTab = () => {
+    window.open(fullUrl, '_blank');
+  };
+
   const isImage = attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i);
   const isPdf = attachmentUrl.match(/\.pdf$/i);
+  const isWordDoc = attachmentUrl.match(/\.(doc|docx)$/i);
+  const getFileIcon = () => {
+    if (isPdf) return <FileText className="w-16 h-16 text-red-500" />;
+    if (isWordDoc) return <FileText className="w-16 h-16 text-blue-500" />;
+    return <FileText className="w-16 h-16 text-gray-500" />;
+  };
+  const getFileType = () => {
+    if (isPdf) return 'PDF Document';
+    if (isWordDoc) return 'Word Document';
+    return 'Document file';
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
@@ -59,22 +74,33 @@ const AttachmentModal = ({ isOpen, onClose, attachmentUrl, fileName }) => {
               alt="Attachment"
               className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
             />
-          ) : isPdf ? (
-            <iframe
-              src={fullUrl}
-              className="w-full h-full min-h-[500px] rounded-lg"
-              title="PDF Preview"
-            />
           ) : (
-            <div className="text-center">
-              <p className="text-gray-600 mb-4">Preview not available for this file type.</p>
-              <button
-                onClick={handleDownload}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 mx-auto"
-              >
-                <Download className="w-4 h-4" />
-                Download File
-              </button>
+            <div className="text-center p-8">
+              {getFileIcon()}
+              <h3 className="text-xl font-semibold text-gray-800 mt-4 mb-2">
+                {fileName || 'Document'}
+              </h3>
+              <p className="text-gray-600 mb-6">
+                {getFileType()}
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={handleDownload}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 justify-center"
+                >
+                  <Download className="w-4 h-4" />
+                  Download File
+                </button>
+                {isPdf && (
+                  <button
+                    onClick={handleOpenInNewTab}
+                    className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2 justify-center"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    Open in New Tab
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
