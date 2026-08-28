@@ -271,6 +271,42 @@ The frontend integrates with the following backend endpoints:
 - Safari (latest)
 - Edge (latest)
 
+# Deployment
+
+This frontend is deployed using free-tier hosting services:
+
+## Production Hosting Stack
+- **Frontend Hosting**: Vercel (free tier)
+- **Backend Hosting**: Render (free web service)
+- **Database**: Supabase PostgreSQL (permanent free tier)
+- **Cache**: Redis Cloud (free tier)
+- **Message Queue**: CloudAMQP RabbitMQ (free tier)
+- **Uptime Monitoring**: UptimeRobot (free tier)
+
+## Environment Variables for Production
+
+The following environment variables should be set on Vercel:
+
+```bash
+# Backend API URL
+VITE_API_URL=https://your-backend-url.onrender.com
+```
+
+## Deployment Steps
+
+1. **Set up backend hosting** (Render with Supabase, Redis Cloud, CloudAMQP)
+2. **Push frontend code to GitHub**
+3. **Connect repository to Vercel**
+4. **Configure environment variables** (VITE_API_URL)
+5. **Deploy and test**
+6. **Verify frontend connects to backend**
+
+## Local vs Production Configuration
+
+- **Local**: Uses `http://localhost:8080` for backend API
+- **Production**: Uses deployed backend URL via VITE_API_URL environment variable
+- Configuration uses Vite's environment variable system: `import.meta.env.VITE_API_URL`
+
 ## License
 
 This frontend is part of the S2DCMS project.
