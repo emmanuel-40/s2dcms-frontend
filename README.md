@@ -276,8 +276,8 @@ The frontend integrates with the following backend endpoints:
 This frontend is deployed using free-tier hosting services:
 
 ## Production Hosting Stack
-- **Frontend Hosting**: Vercel (free tier)
-- **Backend Hosting**: Render (free web service)
+- **Frontend Hosting**: Vercel (free tier) - https://student-complaints-tau.vercel.app
+- **Backend Hosting**: Render (free web service) - https://s2dcms-backend.onrender.com
 - **Database**: Supabase PostgreSQL (permanent free tier)
 - **Cache**: Redis Cloud (free tier)
 - **Message Queue**: CloudAMQP RabbitMQ (free tier)
@@ -289,7 +289,7 @@ The following environment variables should be set on Vercel:
 
 ```bash
 # Backend API URL
-VITE_API_URL=https://your-backend-url.onrender.com
+VITE_API_BASE_URL=https://s2dcms-backend.onrender.com
 ```
 
 ## Deployment Steps
