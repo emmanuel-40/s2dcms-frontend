@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X, User, Building2, Mail, Calendar, ZoomIn, ZoomOut } from 'lucide-react';
+import { assetUrl } from '../config';
 
 const ProfileModal = ({ isOpen, onClose, profile, type }) => {
   const [isZoomed, setIsZoomed] = useState(false);
@@ -30,7 +31,7 @@ const ProfileModal = ({ isOpen, onClose, profile, type }) => {
           >
             {profile.profilePicturePath || profile.departmentProfile ? (
               <img
-                src={`http://localhost:8080${profile.profilePicturePath || profile.departmentProfile}`}
+                src={assetUrl(profile.profilePicturePath || profile.departmentProfile)}
                 alt="Profile"
                 className="w-full h-full object-cover"
               />
