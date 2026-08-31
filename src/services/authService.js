@@ -1,7 +1,7 @@
 // Authentication Service - Matches Backend Security Pattern
 // Implements JWT token rotation, refresh token management, and secure storage
 
-const API_BASE_URL = '/api';
+import { API_BASE_URL } from '../config';
 
 class AuthService {
   constructor() {
