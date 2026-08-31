@@ -71,8 +71,8 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Login failed');
+      const error = await response.json().catch(() => ({ error: 'Login failed' }));
+      throw new Error(error.error || error.message || 'Login failed');
     }
 
     const data = await response.json();
@@ -102,9 +102,10 @@ class AuthService {
     });
 
     if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Token refresh failed' }));
       // Token rotation failed - clear tokens and redirect to login
       this.clearTokens();
-      throw new Error('Token refresh failed');
+      throw new Error(error.error || error.message || 'Token refresh failed');
     }
 
     const data = await response.json();
@@ -146,8 +147,8 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Registration failed');
+      const error = await response.json().catch(() => ({ error: 'Registration failed' }));
+      throw new Error(error.error || error.message || 'Registration failed');
     }
 
     return await response.text();
@@ -160,8 +161,8 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Email verification failed');
+      const error = await response.json().catch(() => ({ error: 'Email verification failed' }));
+      throw new Error(error.error || error.message || 'Email verification failed');
     }
 
     return await response.text();
@@ -178,8 +179,8 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to resend verification');
+      const error = await response.json().catch(() => ({ error: 'Failed to resend verification' }));
+      throw new Error(error.error || error.message || 'Failed to resend verification');
     }
 
     return await response.text();
@@ -196,8 +197,8 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to send reset email');
+      const error = await response.json().catch(() => ({ error: 'Failed to send reset email' }));
+      throw new Error(error.error || error.message || 'Failed to send reset email');
     }
 
     return await response.text();
@@ -214,8 +215,8 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Password reset failed');
+      const error = await response.json().catch(() => ({ error: 'Password reset failed' }));
+      throw new Error(error.error || error.message || 'Password reset failed');
     }
 
     return await response.text();
@@ -233,8 +234,8 @@ class AuthService {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Password change failed');
+      const error = await response.json().catch(() => ({ error: 'Password change failed' }));
+      throw new Error(error.error || error.message || 'Password change failed');
     }
 
     return await response.text();
