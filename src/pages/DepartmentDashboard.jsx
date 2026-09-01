@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { departmentService } from '../services/departmentService';
 import ProfileModal from '../components/ProfileModal';
+import { API_BASE_URL, assetUrl } from '../config';
 
 const DepartmentDashboard = () => {
   const [profile, setProfile] = useState(null);
@@ -78,7 +79,7 @@ const DepartmentDashboard = () => {
         <div className="flex items-center gap-4">
           {profile?.departmentProfile && (
             <img
-              src={`http://localhost:8080${profile.departmentProfile}`}
+              src={assetUrl(profile.departmentProfile)}
               alt="Department Profile"
               className="w-12 h-12 rounded-full object-cover border-2 border-gray-300 shadow-sm"
             />
@@ -156,7 +157,7 @@ const DepartmentDashboard = () => {
                     <div className="flex items-center gap-2">
                       {complaint.profilePicturePath && (
                         <img
-                          src={`http://localhost:8080${complaint.profilePicturePath}`}
+                          src={assetUrl(complaint.profilePicturePath)}
                           alt="Student Profile"
                           className="w-10 h-10 rounded-full object-cover border-2 border-gray-300 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
                           onClick={() => {
