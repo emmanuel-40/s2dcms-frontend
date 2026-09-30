@@ -79,11 +79,9 @@ const NewComplaint = () => {
       const data = await studentService.writeComplaint(aiSituation);
       setAiGeneratedComplaint(data);
     } catch (err) {
-      if (err.message === 'AI service is currently unavailable') {
-        setError('AI service is currently unavailable. Please try again later or contact the administrator.');
-      } else {
-        setError('Failed to generate complaint. Please check your connection and try again.');
-      }
+      // The backend already words AI failures for end users (rate limit, outage, rejected
+      // text) and never leaks provider detail, so show it as-is and only fall back locally.
+      setError(err.message || 'Failed to generate complaint. Please try again.');
     } finally {
       setAiLoading(false);
     }

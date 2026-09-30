@@ -190,12 +190,18 @@ class ApiClient {
      * Handle unsuccessful responses.
      */
     if (!response.ok) {
-      const error = await response
-        .json()
-        .catch(() => ({
-          message: 'Request failed',
-          error: 'Request failed',
-        }));
+      /*
+       * Most endpoints answer failures with a JSON envelope, but the AI endpoints answer
+       * with text/plain. Reading the body as text first (and only parsing when it looks
+       * like JSON) keeps the server's own wording instead of losing it to 'Request failed'.
+       */
+      const rawBody = await response.text().catch(() => '');
+      let error;
+      try {
+        error = rawBody ? JSON.parse(rawBody) : {};
+      } catch {
+        error = { message: rawBody };
+      }
 
       if (response.status === 400) {
         throw new Error(
