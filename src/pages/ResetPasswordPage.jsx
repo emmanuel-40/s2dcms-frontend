@@ -1,7 +1,7 @@
 // Reset Password Page
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import axios from 'axios';
+import { authService } from '../services/authService';
 
 const ResetPasswordPage = () => {
   const [searchParams] = useSearchParams();
@@ -43,10 +43,7 @@ const ResetPasswordPage = () => {
     setLoading(true);
 
     try {
-      await axios.post('http://localhost:8080/api/auth/reset-password', {
-        token: token,
-        newPassword: formData.newPassword
-      });
+      await authService.resetPassword(token, formData.newPassword);
       setMessage('Password reset successful. Redirecting to login...');
       setTimeout(() => {
         navigate('/login');

@@ -22,12 +22,12 @@ const RegisterPage = () => {
   const [attemptsWarning, setAttemptsWarning] = useState('');
   const [deptSearch, setDeptSearch] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
-  const { registerStudent, isAuthenticated, user, getUserRole } = useAuth();
+  const { registerStudent, isAuthenticated, user, getUserRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (!authLoading && isAuthenticated && user) {
       const role = getUserRole();
       if (role === 'STUDENT') {
         navigate('/student/dashboard');
@@ -37,7 +37,7 @@ const RegisterPage = () => {
         navigate('/admin/dashboard');
       }
     }
-  }, [isAuthenticated, user, getUserRole, navigate]);
+  }, [isAuthenticated, user,authLoading, getUserRole, navigate]);
 
   useEffect(() => {
     const fetchDepartments = async () => {
@@ -45,8 +45,8 @@ const RegisterPage = () => {
         const data = await departmentService.getAllDepartments();
         setDepartments(data);
         setFilteredDepartments(data);
-      } catch (err) {
-        console.error('Failed to fetch departments:', err);
+      } catch {
+        setError('Failed to load departments. Please refresh the page.');
       } finally {
         setLoadingDepartments(false);
       }
@@ -86,7 +86,7 @@ const RegisterPage = () => {
     } catch (err) {
       if (err.message.includes('Too many attempts')) {
         setAttemptsWarning(err.message);
-        setError('Rate limit exceeded. Please wait before trying again.');
+        setError(err.message); // Show the actual time remaining message from backend
       } else {
         setError(err.message || 'Registration failed');
       }
@@ -94,6 +94,14 @@ const RegisterPage = () => {
       setLoading(false);
     }
   };
+
+  if (authLoading) {
+  return null;
+ }
+
+ if (isAuthenticated && user) {
+  return null;
+ }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800 p-4">

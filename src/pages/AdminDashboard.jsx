@@ -45,7 +45,6 @@ const AdminDashboard = () => {
       }
     } catch (err) {
       setError('Failed to fetch data');
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -60,7 +59,6 @@ const AdminDashboard = () => {
       fetchData();
     } catch (err) {
       setError('Failed to create department');
-      console.error(err);
     }
   };
 
@@ -80,7 +78,6 @@ const AdminDashboard = () => {
       fetchData();
     } catch (err) {
       setError(`Failed to delete ${deleteTarget.type}`);
-      console.error(err);
     }
     setDeleteTarget({ type: null, id: null });
   };
@@ -97,7 +94,6 @@ const AdminDashboard = () => {
     } catch (err) {
       setError('Failed to update password');
       setPasswordSuccess('');
-      console.error(err);
     }
   };
 

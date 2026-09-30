@@ -70,70 +70,42 @@ const ComplaintDetail = ({ userType }) => {
   };
 
   const handleSummarize = async () => {
-    setAiLoading(true);
-    try {
-      const token = authService.getAccessToken();
-      const response = await fetch('/api/ai/summarize', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ text: complaint.content })
-      });
+  setAiLoading(true);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 503) {
-          setError('AI service is currently unavailable. Please try again later or contact the administrator.');
-        } else {
-          setError('Failed to summarize complaint: ' + errorText);
-        }
-        return;
-      }
+  try {
+    const data = await departmentService.summarizeComplaint(
+      complaint.content
+    );
 
-      const data = await response.text();
-      setAiSummary(data);
-      setShowSummary(true);
-    } catch (err) {
-      setError('Failed to summarize complaint. Please check your connection and try again.');
-    } finally {
-      setAiLoading(false);
-    }
-  };
+    setAiSummary(data);
+    setShowSummary(true);
+  } catch (err) {
+    setError(
+      err.message || 'Failed to summarize complaint. Please try again.'
+    );
+  } finally {
+    setAiLoading(false);
+  }
+};
 
   const handleSuggestReply = async () => {
-    setAiLoading(true);
-    try {
-      const token = authService.getAccessToken();
-      const response = await fetch('/api/ai/suggest-reply', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ complaintText: complaint.content })
-      });
+  setAiLoading(true);
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 503) {
-          setError('AI service is currently unavailable. Please try again later or contact the administrator.');
-        } else {
-          setError('Failed to suggest reply: ' + errorText);
-        }
-        return;
-      }
+  try {
+    const data = await departmentService.suggestReply(
+      complaint.content
+    );
 
-      const data = await response.text();
-      setAiSuggestedReply(data);
-      setShowSuggestedReply(true);
-    } catch (err) {
-      setError('Failed to suggest reply. Please check your connection and try again.');
-    } finally {
-      setAiLoading(false);
-    }
-  };
+    setAiSuggestedReply(data);
+    setShowSuggestedReply(true);
+  } catch (err) {
+    setError(
+      err.message || 'Failed to suggest reply. Please try again.'
+    );
+  } finally {
+    setAiLoading(false);
+  }
+};
 
   const handleCopyReply = () => {
     navigator.clipboard.writeText(aiSuggestedReply);
@@ -418,7 +390,6 @@ const ComplaintDetail = ({ userType }) => {
           setSelectedAttachment(null);
         }}
         attachmentUrl={selectedAttachment}
-        fileName="attachment"
       />
     </div>
   );

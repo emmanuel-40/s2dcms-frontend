@@ -4,11 +4,12 @@ React frontend for the Student to Department Complaint Management System.
 
 ## Related Repositories
 
-- **Backend**: [s2dcms-backend](https://github.com/emmanuel-40/s2dcms-backend) - Spring Boot backend with JWT authentication, Redis caching, and RabbitMQ email processing
+- **Backend**: [s2dcms-backend](https://github.com/emmanuel-40/s2dcms-backend) - Spring Boot backend with cookie-based JWT authentication, Redis caching, and RabbitMQ email processing
+- **API reference**: [API_DOCUMENTATION.md](https://github.com/emmanuel-40/s2dcms-backend/blob/main/API_DOCUMENTATION.md) - request/response contract for every endpoint
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](../LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file in this repository for details.
 
 ## Tech Stack
 
@@ -35,21 +36,23 @@ The frontend uses a **blue, white, and gray color scheme** with Tailwind CSS:
 
 ## Security Implementation
 
-This frontend implements advanced security patterns aligned with the Spring Boot backend:
+This frontend implements enterprise-grade security patterns aligned with the Spring Boot backend:
 
-### JWT Token Management
-- **Access Tokens**: Stored in memory only (never in localStorage for security)
-- **Refresh Tokens**: Stored in localStorage with automatic rotation
-- **Token Rotation**: Old refresh tokens are revoked when new ones are issued
-- **Auto-refresh**: Automatic token refresh when access tokens expire
-- **Session Management**: Supports up to 4 active sessions per user with automatic cleanup
+### Cookie-Based Authentication
+- **HttpOnly Cookies**: Access and refresh tokens stored in HttpOnly cookies (JavaScript cannot access tokens)
+- **CSRF Protection**: Automatic X-XSRF-TOKEN header inclusion for state-changing requests
+- **No LocalStorage**: Tokens never stored in localStorage (prevents XSS token theft)
+- **Automatic Cookie Management**: Browser handles cookie lifecycle automatically
+- **Environment-Aware**: Cookie settings adapt to development vs production environments
 
 ### Authentication Flow
-1. User logs in → receives access + refresh tokens
-2. Access token used for API calls (15 min expiry)
-3. When access token expires → automatic refresh using refresh token
-4. Refresh token rotates on each use (old token becomes invalid)
-5. On logout → refresh token revoked on backend
+1. User logs in → backend sets HttpOnly cookies (`accessToken`, `refreshToken`) via `Set-Cookie`; the JSON body returns only `email` and `role`
+2. Every request is sent with `credentials: 'include'` so the browser attaches the cookies automatically
+3. `apiClient` reads the readable `XSRF-TOKEN` cookie and adds `X-XSRF-TOKEN` to `POST`/`PUT`/`PATCH`/`DELETE`
+4. Access token expires → the request gets a `401`, `apiClient` calls the refresh endpoint (cookies are re-set by the backend), re-seeds the CSRF cookie via `/auth/me`, and replays the original request
+5. Concurrent `401`s do not stampede: a `isRefreshing` flag lets one request refresh while the rest wait on a promise queue and replay afterwards
+6. If the refresh itself fails, the queue is rejected, local state is cleared, and the user is redirected to `/login`
+7. On logout → backend revokes the refresh token and clears both cookies
 
 ### Role-Based Access
 - **STUDENT**: Can access student portal (`/student/*`)
@@ -57,8 +60,8 @@ This frontend implements advanced security patterns aligned with the Spring Boot
 - Protected routes enforce role-based access control
 
 ### Rate Limiting
-- Handles 429 responses from backend rate limiting
-- Shows user-friendly cooldown messages
+- Handles rate limit responses from backend
+- Shows user-friendly cooldown messages with remaining time
 
 ## Prerequisites
 
@@ -70,7 +73,7 @@ This frontend implements advanced security patterns aligned with the Spring Boot
 
 1. Navigate to the frontend directory:
 ```bash
-cd frontend
+cd s2dcms-frontend
 ```
 
 2. Install dependencies:
@@ -82,14 +85,22 @@ This will install React, Tailwind CSS, and all other dependencies.
 
 ## Configuration
 
-The frontend is configured to proxy API requests to the backend:
+All API URLs come from one place — `src/config.js`:
+
+```js
+const BACKEND_ORIGIN = import.meta.env.VITE_API_BASE_URL || '';
+export const API_BASE_URL = BACKEND_ORIGIN ? `${BACKEND_ORIGIN}/api` : '/api';
+```
 
 - **Frontend URL**: `http://localhost:5173`
 - **Backend URL**: `http://localhost:8080`
-- **API Proxy**: Configured in `vite.config.js`
+- **API Proxy**: `/api` → `http://localhost:8080`, configured in `vite.config.js` (it also forwards `Cookie` and `X-XSRF-TOKEN` so cookies work on localhost)
 - **Tailwind CSS**: Configured in `tailwind.config.js` with custom blue color palette
 
-No additional configuration needed if backend runs on default port.
+Leave `VITE_API_BASE_URL` unset for local development — the proxy keeps requests
+same-origin, which is what makes the `HttpOnly` session cookies work without CORS
+ gymnastics. Copy `.env.example` to `.env.local` if you need an override; `.env*`
+files are git-ignored. No configuration is needed if the backend runs on port 8080.
 
 ## Running the Application
 
@@ -163,16 +174,17 @@ npm run preview
   - Reply Suggestions: Get AI-suggested professional responses with copy button
 
 ### Security Features
-- JWT-based authentication
+- Cookie-based authentication (HttpOnly cookies)
+- CSRF protection (X-XSRF-TOKEN headers)
+- No localStorage token storage (XSS protection)
 - Automatic token refresh
-- Token rotation
 - Role-based access control
 - Protected routes
 - Secure file upload handling
 
 ## File Upload Support
 
-- **Max file size**: 20MB
+- **Max file size**: 5MB
 - **Supported formats**: PDF, JPG, PNG, DOC, DOCX
 - **Implementation**: FormData for multipart uploads
 
@@ -214,12 +226,14 @@ The frontend integrates with the following backend endpoints:
 - Verify API proxy configuration in `vite.config.js`
 
 ### Authentication Issues
-- Check that JWT secret matches backend configuration
-- Verify token expiration times (15 min access, 24 hour refresh)
-- Ensure PostgreSQL is available for refresh token storage
+- The frontend holds no secrets — the JWT secret lives only on the backend, so check backend configuration there
+- Confirm the request is sent with `credentials: 'include'` and that the backend CORS allowlist contains the exact origin in use (`*` cannot be combined with credentials)
+- Confirm the `XSRF-TOKEN` cookie is present in DevTools → Application → Cookies before sending a state-changing request
+- Verify token lifetimes (15 min access, 24 h refresh) and that PostgreSQL is reachable for refresh-token storage
+- Cross-origin deployments need `ENVIRONMENT=production` on the backend so cookies are sent with `SameSite=None; Secure`
 
 ### File Upload Issues
-- Verify file size limits (max 20MB)
+- Verify file size limits (max 5MB)
 - Check backend file storage directory permissions
 - Ensure multipart configuration in backend
 
@@ -257,12 +271,15 @@ The frontend integrates with the following backend endpoints:
 
 ## Security Best Practices Implemented
 
-1. **Access Token Storage**: In-memory only (not persisted)
-2. **Refresh Token Rotation**: Old tokens invalidated on refresh
-3. **Automatic Token Refresh**: Transparent to user
-4. **Role-Based Access**: Enforced at route level
-5. **Secure File Upload**: Size limits and type validation
-6. **Error Handling**: Graceful degradation on auth failures
+1. **HttpOnly Cookie Storage**: tokens arrive via `Set-Cookie` and are unreadable to application JavaScript
+2. **Zero Token Surface**: no token is read from, written to, or logged from `localStorage`/`sessionStorage`; the login response body has no token fields
+3. **CSRF Protection**: `XSRF-TOKEN` cookie mirrored into the `X-XSRF-TOKEN` header on every unsafe method
+4. **Single-Flight Token Refresh**: one in-flight refresh, concurrent `401`s queued on a promise and replayed after the new cookies land
+5. **Credential Handling**: `credentials: 'include'` on every call, `skipAuthRefresh` guard so the refresh call can never loop
+6. **Role-Based Access**: enforced at route level by `ProtectedRoute` (`STUDENT` / `DEPARTMENT`)
+7. **Secure File Upload**: client-side size limit (5 MB) and type validation ahead of the backend check
+8. **Graceful Degradation**: refresh failure clears state and redirects to `/login` instead of leaving a half-authenticated UI
+9. **User-Friendly Rate Limiting**: backend cooldown minutes surfaced verbatim to the user
 
 ## Browser Support
 
@@ -297,16 +314,28 @@ VITE_API_BASE_URL=https://s2dcms-backend.onrender.com
 1. **Set up backend hosting** (Render with Supabase, Redis Cloud, CloudAMQP)
 2. **Push frontend code to GitHub**
 3. **Connect repository to Vercel**
-4. **Configure environment variables** (VITE_API_URL)
+4. **Configure the environment variable** `VITE_API_BASE_URL`
 5. **Deploy and test**
-6. **Verify frontend connects to backend**
+6. **Verify frontend connects to backend** — the deployed origin must be present in the backend CORS allowlist, or every credentialed request will be blocked
 
 ## Local vs Production Configuration
 
-- **Local**: Uses `http://localhost:8080` for backend API
-- **Production**: Uses deployed backend URL via VITE_API_URL environment variable
-- Configuration uses Vite's environment variable system: `import.meta.env.VITE_API_URL`
+| | Local | Production |
+| --- | --- | --- |
+| API base | `VITE_API_BASE_URL` unset → `/api`, proxied to `http://localhost:8080` by `vite.config.js` | `VITE_API_BASE_URL=https://s2dcms-backend.onrender.com` → calls go to `.../api` on the deployed API |
+| Cookies | same-origin through the proxy, `SameSite=Lax` | cross-site, so the backend must run with `ENVIRONMENT=production` to send `SameSite=None; Secure` |
+| CORS | not exercised (proxied) | backend allowlist must contain the exact Vercel origin |
+
+`VITE_API_BASE_URL` is the only variable the app reads (`src/config.js`). Vercel
+exposes it at build time, so redeploy after changing it.
 
 ## License
 
-This frontend is part of the S2DCMS project.
+MIT License — see the [LICENSE](LICENSE) file in this repository for details.
+
+## Author
+
+Developed by **Eze Emmanuel** · [github.com/emmanuel-40](https://github.com/emmanuel-40)
+
+This frontend is the client half of the S2DCMS project; the API lives in
+[s2dcms-backend](https://github.com/emmanuel-40/s2dcms-backend).

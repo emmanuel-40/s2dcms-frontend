@@ -2,12 +2,17 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import LoadingSpinner from './LoadingSpinner';
 
 export const ProtectedRoute = ({ children, requiredRole }) => {
   const { isAuthenticated, getUserRole, loading } = useAuth();
 
   if (loading) {
-    return <div className="loading">Loading...</div>;
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <LoadingSpinner text="Loading..." size="lg" />
+      </div>
+    );
   }
 
   if (!isAuthenticated) {

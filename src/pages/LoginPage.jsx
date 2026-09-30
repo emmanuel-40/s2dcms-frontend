@@ -1,8 +1,9 @@
 // Login Page
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
+import { authService } from '../services/authService';
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
@@ -16,12 +17,12 @@ const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [attemptsWarning, setAttemptsWarning] = useState('');
-  const { login, getUserRole, isAuthenticated, user } = useAuth();
+  const { login, getUserRole, isAuthenticated, user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (!authLoading && isAuthenticated && user) {
       const role = getUserRole();
       if (role === 'STUDENT') {
         navigate('/student/dashboard');
@@ -31,7 +32,7 @@ const LoginPage = () => {
         navigate('/admin/dashboard');
       }
     }
-  }, [isAuthenticated, user, getUserRole, navigate]);
+  }, [isAuthenticated, user, authLoading, getUserRole, navigate]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -65,7 +66,7 @@ const LoginPage = () => {
         setError('Your email is not verified. Please verify your email to login.');
       } else if (err.message.includes('Too many attempts')) {
         setAttemptsWarning(err.message);
-        setError('Rate limit exceeded. Please wait before trying again.');
+        setError(err.message); // Show the actual time remaining message from backend
       } else {
         setError(err.message || 'Login failed');
       }
@@ -79,16 +80,19 @@ const LoginPage = () => {
     setResendMessage('');
 
     try {
-      await axios.post('http://localhost:8080/api/students/auth/resend-verification', {
-        email: formData.email
-      });
+      await authService.resendVerification(formData.email);
       setResendMessage('Verification email sent successfully. Please check your inbox.');
     } catch (err) {
-      setResendMessage(err.response?.data || 'Failed to resend verification email.');
+      setResendMessage(err.message || 'Failed to resend verification email.');
     } finally {
       setResendLoading(false);
     }
   };
+
+  if (authLoading) {
+  return <LoadingSpinner text="Checking authentication..." size="lg" />;
+  }
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800 p-4">

@@ -1,6 +1,7 @@
 // Authentication Context - Manages auth state and role-based access
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '../services/authService';
+import { API_BASE_URL } from '../config';
 
 const AuthContext = createContext(null);
 
@@ -19,36 +20,86 @@ export const AuthProvider = ({ children }) => {
 
   // Initialize auth state on mount
   useEffect(() => {
+  const initializeAuth = async () => {
     authService.initialize();
-    const authUser = authService.getUser();
-    
-    if (authUser && authService.getRefreshToken()) {
-      // User has refresh token but needs to get new access token
-      // This happens on page refresh since access token is not persisted
-      authService.refreshAccessToken()
-        .then(() => {
-          setUser(authService.getUser());
-          setIsAuthenticated(true);
-        })
-        .catch(() => {
-          // Refresh failed - clear tokens
-          authService.clearTokens();
-          setIsAuthenticated(false);
-          setUser(null);
-        })
-        .finally(() => {
-          setLoading(false);
-        });
-    } else {
+
+    try {
+      let response = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+
+      // Access token may be missing or expired (401), or anonymous denial (legacy 403).
+      if (response.status === 401 || response.status === 403) {
+        try {
+          await authService.refreshAccessToken();
+
+          // Try /auth/me again after successful refresh
+          response = await fetch(`${API_BASE_URL}/auth/me`, {
+            method: 'GET',
+            credentials: 'include',
+          });
+        } catch {
+          throw new Error('Not authenticated');
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error('Not authenticated');
+      }
+
+      const data = await response.json();
+
+      if (
+        data &&
+        data.email &&
+        data.email !== 'anonymousUser' &&
+        data.role !== 'ANONYMOUS'
+      ) {
+        setUser(data);
+        setIsAuthenticated(true);
+        authService.setUser(data);
+      } else {
+        throw new Error('Invalid authentication data');
+      }
+
+    } catch {
+      authService.clearTokens();
+      setIsAuthenticated(false);
+      setUser(null);
+    } finally {
       setLoading(false);
     }
-  }, []);
+  };
+
+  initializeAuth();
+}, []);
 
   const login = async (email, password) => {
     const data = await authService.login(email, password);
+
+    // Seed XSRF-TOKEN cookie (login is CSRF-ignored; this GET is not)
+    try {
+      const meResponse = await fetch(`${API_BASE_URL}/auth/me`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (meResponse.ok) {
+        const me = await meResponse.json();
+        if (me?.email && me.email !== 'anonymousUser') {
+          authService.setUser(me);
+          setUser(me);
+          setIsAuthenticated(true);
+          return { ...data, role: me.role || data.role };
+        }
+      }
+    } catch {
+      // Fall through to login response data if /auth/me fails
+    }
+
     setUser(authService.getUser());
     setIsAuthenticated(true);
-    return { ...data, role: authService.getUserRole() };
+    return { ...data, role: data.role || authService.getUserRole() };
   };
 
   const logout = async () => {
@@ -93,6 +144,7 @@ export const AuthProvider = ({ children }) => {
     forgotPassword,
     resetPassword,
     changePassword,
+    getUser: () => user,
     getUserRole: () => user?.role || null,
   };
 

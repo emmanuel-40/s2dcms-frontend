@@ -19,7 +19,7 @@ const StudentProfile = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [removeProfile, setRemoveProfile] = useState(false);
-  const { logout, getUser } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {

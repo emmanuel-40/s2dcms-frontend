@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { studentService } from '../services/studentService';
 import { Eye, EyeOff, Clock } from 'lucide-react';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const StudentComplaints = () => {
   const [complaints, setComplaints] = useState([]);
@@ -47,7 +48,7 @@ const StudentComplaints = () => {
   };
 
   if (loading) {
-    return <div className="flex justify-center items-center min-h-[200px] text-xl text-gray-600">Loading complaints...</div>;
+    return <LoadingSpinner text="Loading complaints..." size="lg" />;
   }
 
   return (

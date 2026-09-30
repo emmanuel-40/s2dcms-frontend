@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { studentService } from '../services/studentService';
 import { authService } from '../services/authService';
+import { apiClient } from '../services/apiClient';
 
 const NewComplaint = () => {
   const [formData, setFormData] = useState({
@@ -20,6 +21,22 @@ const NewComplaint = () => {
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const validateFile = (file) => {
+    // Check file size (5MB limit)
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      return { valid: false, error: 'File size must be less than 5MB' };
+    }
+    
+    // Check file type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!allowedTypes.includes(file.type)) {
+      return { valid: false, error: 'Only images (JPEG, PNG) and documents (PDF, Word) are allowed' };
+    }
+    
+    return { valid: true };
   };
 
   const handleFileChange = (e) => {
@@ -59,30 +76,14 @@ const NewComplaint = () => {
   const handleGenerateComplaint = async () => {
     setAiLoading(true);
     try {
-      const token = authService.getAccessToken();
-      const response = await fetch('/api/ai/write-complaint', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ situation: aiSituation })
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        if (response.status === 503) {
-          setError('AI service is currently unavailable. Please try again later or contact the administrator.');
-        } else {
-          setError('Failed to generate complaint: ' + errorText);
-        }
-        return;
-      }
-
-      const data = await response.text();
+      const data = await studentService.writeComplaint(aiSituation);
       setAiGeneratedComplaint(data);
     } catch (err) {
-      setError('Failed to generate complaint. Please check your connection and try again.');
+      if (err.message === 'AI service is currently unavailable') {
+        setError('AI service is currently unavailable. Please try again later or contact the administrator.');
+      } else {
+        setError('Failed to generate complaint. Please check your connection and try again.');
+      }
     } finally {
       setAiLoading(false);
     }
@@ -176,7 +177,7 @@ const NewComplaint = () => {
             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />
-          <small className="text-gray-600">Max file size: 20MB. Accepted formats: PDF, JPG, PNG, DOC, DOCX</small>
+          <small className="text-gray-600">Max file size: 5MB. Accepted formats: PDF, JPG, PNG, DOC, DOCX</small>
           {attachment && (
             <div className="mt-2 text-blue-600 text-sm">
               Selected: {attachment.name} ({(attachment.size / 1024 / 1024).toFixed(2)} MB)

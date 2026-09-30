@@ -31,6 +31,9 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
+# Vite temp artifacts
+vite.config.js.timestamp-*.mjs
+
 # Testing
 coverage/
 

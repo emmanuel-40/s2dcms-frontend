@@ -2,6 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GraduationCap, Building2, ArrowRight, ChevronLeft, ChevronRight, Mail, Send, CheckCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { API_BASE_URL } from '../config';
 
 const LandingPage = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -12,6 +15,20 @@ const LandingPage = () => {
   const [contactSubmitted, setContactSubmitted] = useState(false);
   const [contactError, setContactError] = useState('');
   const navigate = useNavigate();
+  const { user, loading } = useAuth();
+
+  // Redirect authenticated users to their dashboard
+  useEffect(() => {
+    if (!loading && user) {
+      if (user.role === 'DEPARTMENT') {
+        navigate('/department/dashboard');
+      } else if (user.role === 'STUDENT') {
+        navigate('/student/dashboard');
+      } else if (user.role === 'ADMIN') {
+      navigate('/admin/dashboard');
+    }
+    }
+  }, [user, loading, navigate]);
 
   // Image carousel slides - user should place images at: frontend/public/images/
   const slides = [
@@ -73,11 +90,12 @@ const LandingPage = () => {
     setContactError('');
     
     try {
-      const response = await fetch('http://localhost:8080/api/contact', {
+      const response = await fetch(`${API_BASE_URL}/contact`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(contactForm),
       });
 
@@ -96,6 +114,12 @@ const LandingPage = () => {
     }
   };
 
+  if (loading) {
+  return null;
+}
+if (user) {
+  return null; // logged in — about to redirect, don't show the page
+}
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
@@ -114,18 +138,22 @@ const LandingPage = () => {
                 <Mail className="h-4 w-4" />
                 <span>Contact</span>
               </button>
-              <button
-                onClick={() => navigate('/login')}
-                className="px-4 py-2 text-blue-600 hover:text-blue-800 font-medium"
-              >
-                Login
-              </button>
-              <button
-                onClick={handleJoinNow}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-              >
-                Join Now
-              </button>
+              {!loading && !user ? (
+                <>
+                  <button
+                    onClick={() => navigate('/login')}
+                    className="px-4 py-2 text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    Login
+                  </button>
+                  <button
+                    onClick={handleJoinNow}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  >
+                    Join Now
+                  </button>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
@@ -143,21 +171,23 @@ const LandingPage = () => {
             <p className="text-xl text-gray-600">
               Streamline communication between students and departments. Submit complaints, track progress, and get timely responses.
             </p>
-            <div className="flex space-x-4">
-              <button
-                onClick={handleJoinNow}
-                className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 font-semibold flex items-center space-x-2 shadow-lg"
-              >
-                <span>Get Started</span>
-                <ArrowRight className="h-5 w-5" />
-              </button>
-              <button
-                onClick={() => navigate('/login')}
-                className="px-8 py-4 bg-white text-blue-600 border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition-all font-semibold"
-              >
-                Learn More
-              </button>
-            </div>
+            {!loading && !user && (
+              <div className="flex space-x-4">
+                <button
+                  onClick={handleJoinNow}
+                  className="px-8 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all transform hover:scale-105 font-semibold flex items-center space-x-2 shadow-lg"
+                >
+                  <span>Get Started</span>
+                  <ArrowRight className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="px-8 py-4 bg-white text-blue-600 border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition-all font-semibold"
+                >
+                  Learn More
+                </button>
+              </div>
+            )}
 
             {/* Features */}
             <div className="grid grid-cols-2 gap-6 pt-8">

@@ -48,4 +48,13 @@ export const studentService = {
   resendVerification: async (email) => {
     return await apiClient.post('/students/auth/resend-verification', { email });
   },
+
+  // AI write complaint
+  writeComplaint: async (situation) => {
+    return await apiClient.post(
+      '/ai/write-complaint',
+      { situation },
+      { responseType: 'text' }
+    );
+  },
 };

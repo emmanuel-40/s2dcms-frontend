@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
 import { validateFile } from '../utils/fileValidation';
+import { Download } from 'lucide-react';
+import AttachmentModal from '../components/AttachmentModal';
 
 const ReplyComplaint = () => {
   const { id } = useParams();
@@ -12,6 +14,8 @@ const ReplyComplaint = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [showAttachmentModal, setShowAttachmentModal] = useState(false);
+  const [selectedAttachment, setSelectedAttachment] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -111,16 +115,19 @@ const ReplyComplaint = () => {
           <p className="bg-gray-50 p-4 rounded-lg mb-4 leading-relaxed">{complaint.content}</p>
           
           {complaint.attachmentPath && (
-            <div className="p-3 bg-gray-50 rounded-lg">
+            <div className="p-3 bg-gray-50 rounded-lg flex flex-wrap items-center gap-3">
               <strong className="text-gray-700">Attachment:</strong>
-              <a 
-                href={`http://localhost:8080${complaint.attachmentPath}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 hover:text-blue-800 ml-2"
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedAttachment(complaint.attachmentPath);
+                  setShowAttachmentModal(true);
+                }}
+                className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
               >
+                <Download className="w-4 h-4" />
                 View Attachment
-              </a>
+              </button>
             </div>
           )}
 
@@ -129,14 +136,17 @@ const ReplyComplaint = () => {
               <h4 className="font-bold text-gray-800 mb-2">Previous Reply:</h4>
               <p className="leading-relaxed">{complaint.reply}</p>
               {complaint.replyAttachmentPath && (
-                <a 
-                  href={`http://localhost:8080${complaint.replyAttachmentPath}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800"
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedAttachment(complaint.replyAttachmentPath);
+                    setShowAttachmentModal(true);
+                  }}
+                  className="mt-2 inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                 >
+                  <Download className="w-4 h-4" />
                   View Previous Attachment
-                </a>
+                </button>
               )}
             </div>
           )}
@@ -191,6 +201,15 @@ const ReplyComplaint = () => {
           </button>
         </div>
       </form>
+
+      <AttachmentModal
+        isOpen={showAttachmentModal}
+        onClose={() => {
+          setShowAttachmentModal(false);
+          setSelectedAttachment(null);
+        }}
+        attachmentUrl={selectedAttachment}
+      />
     </div>
   );
 };

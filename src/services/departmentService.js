@@ -1,3 +1,4 @@
+
 // Department Service - API calls for department endpoints
 import { apiClient } from './apiClient';
 
@@ -14,13 +15,20 @@ export const departmentService = {
 
   // Get department complaints
   getComplaints: async (params = {}) => {
-    const { status = 'ALL', sort = 'NEWEST', page = 0, size = 10 } = params;
+    const {
+      status = 'ALL',
+      sort = 'NEWEST',
+      page = 0,
+      size = 10
+    } = params;
+
     const queryParams = new URLSearchParams({
       status,
       sort,
       page: page.toString(),
       size: size.toString(),
     });
+
     return await apiClient.get(`/department/complaints?${queryParams}`);
   },
 
@@ -37,6 +45,24 @@ export const departmentService = {
   // Close complaint
   closeComplaint: async (complaintId) => {
     return await apiClient.put(`/department/complaints/${complaintId}/close`);
+  },
+
+  // AI summarize complaint
+  summarizeComplaint: async (text) => {
+    return await apiClient.post(
+      '/ai/summarize',
+      { text },
+      { responseType: 'text' }
+    );
+  },
+
+  // AI suggest reply
+  suggestReply: async (complaintText) => {
+    return await apiClient.post(
+      '/ai/suggest-reply',
+      { complaintText },
+      { responseType: 'text' }
+    );
   },
 
   // Get all departments (public endpoint for registration)

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
 import { Eye, EyeOff, Clock } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { assetUrl } from '../config';
 
 const DepartmentComplaints = () => {
@@ -52,7 +53,7 @@ const DepartmentComplaints = () => {
   };
 
   if (loading) {
-    return <div className="flex justify-center items-center min-h-[200px] text-xl text-gray-600">Loading complaints...</div>;
+    return <LoadingSpinner text="Loading complaints..." size="lg" />;
   }
 
   return (
