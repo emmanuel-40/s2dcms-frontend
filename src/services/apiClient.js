@@ -18,6 +18,13 @@ class ApiClient {
 
     // Requests waiting for the refresh to finish
     this.failedQueue = [];
+
+    // CSRF token captured from X-XSRF-TOKEN response headers (CORS-exposed, so
+    // readable cross-origin - document.cookie is NOT)
+    this.csrfToken = null;
+
+    // In-flight GET /api/auth/csrf bootstrap, shared by concurrent requests
+    this.csrfBootstrap = null;
   }
 
   // Process requests waiting for token refresh
@@ -41,8 +48,24 @@ class ApiClient {
     });
   }
 
-  // Get CSRF token from the non-HttpOnly XSRF-TOKEN cookie set by Spring
-  getCsrfToken() {
+  /*
+   * CSRF TOKEN DELIVERY
+   *
+   * The XSRF-TOKEN cookie is only readable same-origin: document.cookie cannot see
+   * another site's cookies, so the deployed SPA never sees it. The backend also puts
+   * the token on every response in the CORS-exposed X-XSRF-TOKEN header, and serves
+   * it in a JSON body via GET /api/auth/csrf. Both channels feed this client; the
+   * cookie read stays as a same-origin (dev proxy) fallback.
+   */
+  captureCsrfToken(response) {
+    const header = response.headers.get('X-XSRF-TOKEN');
+    if (header) {
+      this.csrfToken = header;
+    }
+  }
+
+  // Read the non-HttpOnly XSRF-TOKEN cookie set by Spring (same-origin only).
+  readCsrfCookie() {
     const match = document.cookie
       .split(';')
       .map((c) => c.trim())
@@ -53,17 +76,62 @@ class ApiClient {
     }
 
     return decodeURIComponent(match.substring('XSRF-TOKEN='.length));
-
   }
 
-  applyCsrfHeader(headers = {}, method) {
+  // Token from a captured response header (cross-origin) or the readable cookie (dev).
+  getCsrfToken() {
+    return this.csrfToken || this.readCsrfCookie();
+  }
+
+  /*
+   * Guarantees a token before a state-changing request. Concurrent callers share a
+   * single in-flight bootstrap, so a burst of saves triggers one GET /api/auth/csrf.
+   */
+  async ensureCsrfToken({ force = false } = {}) {
+    if (force) {
+      this.csrfToken = null;
+    } else if (this.getCsrfToken()) {
+      return this.getCsrfToken();
+    }
+
+    if (!this.csrfBootstrap) {
+      this.csrfBootstrap = (async () => {
+        try {
+          const response = await fetch(`${this.baseURL}/auth/csrf`, {
+            method: 'GET',
+            credentials: 'include',
+          });
+
+          if (response.ok) {
+            this.captureCsrfToken(response);
+            const data = await response.json().catch(() => null);
+            if (data && typeof data.token === 'string' && data.token) {
+              this.csrfToken = data.token;
+            }
+          }
+
+          return this.getCsrfToken();
+        } catch {
+          // Token channels unreachable - the server's 403 path recovers later.
+          return this.getCsrfToken();
+        } finally {
+          this.csrfBootstrap = null;
+        }
+      })();
+    }
+
+    return this.csrfBootstrap;
+  }
+
+  async applyCsrfHeader(headers = {}, method) {
     const upper = (method || 'GET').toUpperCase();
     if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(upper)) {
       return headers;
     }
 
-    const csrfToken = this.getCsrfToken();
+    const csrfToken = await this.ensureCsrfToken();
     if (!csrfToken) {
+      // Nothing to mirror yet: send as-is; a 403 CSRF response triggers re-seed + retry.
       return headers;
     }
 
@@ -83,6 +151,7 @@ class ApiClient {
      */
     const {
       skipAuthRefresh = false,
+      skipCsrfRetry = false,
       responseType = 'json',
       ...fetchOptions
     } = options;
@@ -95,7 +164,7 @@ class ApiClient {
      * Always send HttpOnly auth cookies + readable XSRF-TOKEN cookie.
      */
     fetchOptions.credentials = 'include';
-    fetchOptions.headers = this.applyCsrfHeader(
+    fetchOptions.headers = await this.applyCsrfHeader(
       fetchOptions.headers,
       method
     );
@@ -104,6 +173,11 @@ class ApiClient {
      * Make original request.
      */
     let response = await fetch(url, fetchOptions);
+
+    /*
+     * Cache the fresh CSRF token the backend exposes on every response.
+     */
+    this.captureCsrfToken(response);
 
     /*
      * ACCESS TOKEN REFRESH
@@ -136,18 +210,24 @@ class ApiClient {
         await authService.refreshAccessToken();
 
         /*
-         * After refresh, re-seed CSRF via /auth/me then re-read cookie.
+         * After refresh, re-seed CSRF via the JSON channel and retry with the
+         * fresh cookies.
          */
         try {
-          await fetch(`${this.baseURL}/auth/me`, {
+          /*
+           * Re-seed CSRF through the JSON channel (works cross-origin), then
+           * re-read whatever we have.
+           */
+          const seedResponse = await fetch(`${this.baseURL}/auth/csrf`, {
             method: 'GET',
             credentials: 'include',
           });
+          this.captureCsrfToken(seedResponse);
         } catch {
           // Cookie may already exist; continue with whatever we have
         }
 
-        fetchOptions.headers = this.applyCsrfHeader(
+        fetchOptions.headers = await this.applyCsrfHeader(
           fetchOptions.headers,
           method
         );
@@ -156,6 +236,7 @@ class ApiClient {
          * Retry original request with new cookies.
          */
         response = await fetch(url, fetchOptions);
+        this.captureCsrfToken(response);
 
         /*
          * Allow queued requests to continue.
@@ -201,6 +282,25 @@ class ApiClient {
         error = rawBody ? JSON.parse(rawBody) : {};
       } catch {
         error = { message: rawBody };
+      }
+
+      /*
+       * CSRF rejection on a state-changing call: the token went stale (expired
+       * XSRF cookie, reload between seed and save, ...). Re-seed once from the
+       * server and retry once - never loop.
+       */
+      if (
+        response.status === 403 &&
+        !skipCsrfRetry &&
+        ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method) &&
+        /csrf/i.test(`${error.message || ''} ${error.error || ''}`)
+      ) {
+        await this.ensureCsrfToken({ force: true });
+
+        return this.request(endpoint, {
+          ...options,
+          skipCsrfRetry: true,
+        });
       }
 
       if (response.status === 400) {
@@ -338,8 +438,13 @@ class ApiClient {
     const response = await fetch(url, {
       ...options,
       credentials: 'include',
-      headers: this.applyCsrfHeader(options.headers, method),
+      headers: await this.applyCsrfHeader(options.headers, method),
     });
+
+    /*
+     * Keep the CSRF token cache warm on public endpoints too.
+     */
+    this.captureCsrfToken(response);
 
     /*
      * 204 No Content

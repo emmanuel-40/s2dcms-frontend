@@ -228,7 +228,7 @@ The frontend integrates with the following backend endpoints:
 ### Authentication Issues
 - The frontend holds no secrets — the JWT secret lives only on the backend, so check backend configuration there
 - Confirm the request is sent with `credentials: 'include'` and that the backend CORS allowlist contains the exact origin in use (`*` cannot be combined with credentials)
-- Confirm the `XSRF-TOKEN` cookie is present in DevTools → Application → Cookies before sending a state-changing request
+- Confirm an `X-XSRF-TOKEN` header arrives on API responses (DevTools → Network). The client captures it automatically and bootstraps through `GET /api/auth/csrf` before the first state-changing request; a `403` with `CSRF token missing or invalid` triggers one automatic re-seed + retry
 - Verify token lifetimes (15 min access, 24 h refresh) and that PostgreSQL is reachable for refresh-token storage
 - Cross-origin deployments need `ENVIRONMENT=production` on the backend so cookies are sent with `SameSite=None; Secure`
 
