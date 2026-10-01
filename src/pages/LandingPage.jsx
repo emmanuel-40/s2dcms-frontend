@@ -107,7 +107,10 @@ const LandingPage = () => {
           setShowContactModal(false);
         }, 3000);
       } else {
-        setContactError('Failed to send message. Please try again.');
+        // Surface the server's own message where there is one (e.g. the 429 rate-limit
+        // response). A blanket "failed to send" hides a retryable limit from the sender.
+        const payload = await response.json().catch(() => null);
+        setContactError(payload?.error || `Failed to send message (${response.status}). Please try again.`);
       }
     } catch (error) {
       setContactError('Network error. Please check your connection.');

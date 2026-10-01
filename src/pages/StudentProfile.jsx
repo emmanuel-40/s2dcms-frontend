@@ -6,6 +6,7 @@ import { studentService } from '../services/studentService';
 import { User, Camera, ArrowLeft, Save } from 'lucide-react';
 import { validateImage } from '../utils/fileValidation';
 import { assetUrl } from '../config';
+import LoadingSpinner from '../components/LoadingSpinner';
 
 const StudentProfile = () => {
   const [profile, setProfile] = useState(null);
@@ -100,7 +101,11 @@ const StudentProfile = () => {
   };
 
   if (loading) {
-    return <div className="flex justify-center items-center min-h-[200px] text-xl text-gray-600">Loading profile...</div>;
+    return (
+      <div className="min-h-screen bg-gray-100 flex justify-center items-center py-32">
+        <LoadingSpinner text="Loading profile..." size="lg" />
+      </div>
+    );
   }
 
   return (
