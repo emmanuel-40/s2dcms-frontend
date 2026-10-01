@@ -86,12 +86,20 @@ class ApiClient {
   /*
    * Guarantees a token before a state-changing request. Concurrent callers share a
    * single in-flight bootstrap, so a burst of saves triggers one GET /api/auth/csrf.
+   *
+   * "Force" is the default for writes. A cached token is only valid for as long as the
+   * server keeps issuing that same value, and it does not: the token is replaced on
+   * login (Spring's CsrfAuthenticationStrategy clears it deliberately, to defeat session
+   * fixation) and whenever a cookie is not presented. So a cached token is a guess, and a
+   * wrong guess costs a 403 plus a full retry of a multipart upload. One small JSON GET
+   * before a write - which happens a handful of times per session - is far cheaper than
+   * re-uploading a file, and it makes staleness impossible rather than merely unlikely.
    */
   primeCsrfToken() {
     return this.ensureCsrfToken({ force: true });
   }
 
-  async ensureCsrfToken({ force = false } = {}) {
+  async ensureCsrfToken({ force = true } = {}) {
     if (force) {
       this.csrfToken = null;
     } else if (this.getCsrfToken()) {
@@ -133,9 +141,11 @@ class ApiClient {
       return headers;
     }
 
-    const csrfToken = await this.ensureCsrfToken();
+    // Always re-seed for a write: see the note on ensureCsrfToken. Correctness first.
+    const csrfToken = await this.ensureCsrfToken({ force: true });
     if (!csrfToken) {
-      // Nothing to mirror yet: send as-is; a 403 CSRF response triggers re-seed + retry.
+      // The token endpoint was unreachable. Send as-is - a 403 CSRF response still triggers
+      // a re-seed and one retry, so this degrades instead of failing outright.
       return headers;
     }
 
