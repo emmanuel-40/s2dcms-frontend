@@ -87,6 +87,10 @@ class ApiClient {
    * Guarantees a token before a state-changing request. Concurrent callers share a
    * single in-flight bootstrap, so a burst of saves triggers one GET /api/auth/csrf.
    */
+  primeCsrfToken() {
+    return this.ensureCsrfToken({ force: true });
+  }
+
   async ensureCsrfToken({ force = false } = {}) {
     if (force) {
       this.csrfToken = null;

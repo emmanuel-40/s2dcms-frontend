@@ -74,6 +74,10 @@ class AuthService {
       role: data.role,
     });
 
+    // Logging in starts a new session, so any CSRF token cached beforehand is stale. Prime a
+    // fresh one now instead of letting the first save be rejected with 403 and retried.
+    await apiClient.primeCsrfToken();
+
     return data;
   }
 
