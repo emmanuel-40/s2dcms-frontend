@@ -118,7 +118,13 @@ const LandingPage = () => {
   };
 
   if (loading) {
-  return null;
+// Renders a blank page while the session check is in flight. Show the shared spinner
+  // instead, so a page refresh looks like loading rather than like a broken site.
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex justify-center items-center">
+      <LoadingSpinner text="Loading..." size="lg" />
+    </div>
+  );
 }
 if (user) {
   return null; // logged in — about to redirect, don't show the page
