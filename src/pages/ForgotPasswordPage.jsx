@@ -17,7 +17,9 @@ const ForgotPasswordPage = () => {
 
     try {
       await authService.forgotPassword(email);
-      setMessage('Password reset link has been sent to your email. Please check your inbox.');
+      // Non-committal on purpose: the backend answers identically whether or not the address has an
+    // account, so this screen must not imply which case occurred either.
+    setMessage('If an account exists for that email, a password reset link is on its way.');
     } catch (err) {
       setError(err.message || 'Failed to send password reset link. Please try again.');
     } finally {
