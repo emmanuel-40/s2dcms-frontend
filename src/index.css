@@ -1,3 +1,19 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/*
+ * Mobile viewport guard.
+ *
+ * Without this the page can be swiped sideways on a phone: a single element wider than the
+ * viewport (a long unbroken string, a wide table, a fixed-width child) makes the document
+ * horizontally scrollable, which drags the whole login card with it and lets the user pan into
+ * blank space. Clamping the root stops the overflow at the source instead of hiding it on
+ * individual components, so the layout still lays out correctly - it just cannot be panned.
+ */
+html,
+body,
+#root {
+  max-width: 100%;
+  overflow-x: hidden;
+}

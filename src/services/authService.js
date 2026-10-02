@@ -251,6 +251,24 @@ class AuthService {
     return await response.text();
   }
 
+  // Check whether a password reset link is still usable before showing the form.
+  // Returns 'valid' | 'expired' | 'invalid' so the page can explain what happened.
+  async validateResetToken(token) {
+    if (!token) return 'invalid';
+
+    const response = await fetch(
+      `${API_BASE_URL}/auth/reset-password/validate?token=${encodeURIComponent(token)}`,
+      { method: 'GET' }
+    );
+
+    if (response.status === 410 || response.status === 200) {
+      const data = await response.json().catch(() => ({}));
+      return data.status || 'invalid';
+    }
+
+    return 'invalid';
+  }
+
   // Reset password
   async resetPassword(token, newPassword) {
     const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
