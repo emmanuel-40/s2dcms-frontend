@@ -101,11 +101,17 @@ const DepartmentProfile = () => {
         formDataToSend.append('removeProfile', 'true');
       }
 
-      await departmentService.updateProfile(formDataToSend);
+      // updateProfile already returns the saved DepartmentResponse, so the form is updated from that
+      // instead of issuing a second GET.
+      const updated = await departmentService.updateProfile(formDataToSend);
+
+      setProfile(updated);
+      setImagePreview(
+        updated.departmentProfile ? assetUrl(updated.departmentProfile) : null
+      );
+      setImageFile(null);
+      setRemoveProfile(false);
       setSuccess('Profile updated successfully!');
-      setImageFile(null); // Clear the uploaded file
-      setRemoveProfile(false); // Reset remove profile flag
-      await loadProfile();
     } catch (err) {
       setError(err.message || 'Failed to update profile');
     } finally {

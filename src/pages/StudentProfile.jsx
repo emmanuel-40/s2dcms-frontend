@@ -108,11 +108,20 @@ const StudentProfile = () => {
         formDataToSend.append('removeProfile', 'true');
       }
 
-      await studentService.updateProfile(formDataToSend);
+      // updateProfile already returns the saved StudentResponse, so the form is updated from that
+      // instead of issuing a second GET. That removes a round trip AND stops loadProfile() from
+      // flipping `loading`, which previously replaced the whole page with a full-screen spinner for
+      // the duration of the refetch.
+      const updated = await studentService.updateProfile(formDataToSend);
+
+      setProfile(updated);
+      setFormData({ name: updated.name });
+      setImagePreview(
+        updated.profilePicturePath ? assetUrl(updated.profilePicturePath) : null
+      );
+      setImageFile(null);
+      setRemoveProfile(false);
       setSuccess('Profile updated successfully!');
-      setImageFile(null); // Clear the uploaded file
-      setRemoveProfile(false); // Reset remove profile flag
-      await loadProfile();
     } catch (err) {
       setError(err.message || 'Failed to update profile');
     } finally {
