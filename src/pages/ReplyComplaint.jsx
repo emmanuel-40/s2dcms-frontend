@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
 import { validateFile } from '../utils/fileValidation';
 import { prepareAttachmentFile } from '../utils/imageResize';
+import LoadingSpinner from '../components/LoadingSpinner';
 import { Download } from 'lucide-react';
 import AttachmentModal from '../components/AttachmentModal';
 
@@ -12,7 +13,6 @@ const ReplyComplaint = () => {
   const [complaint, setComplaint] = useState(null);
   const [reply, setReply] = useState('');
   const [attachment, setAttachment] = useState(null);
-  const [fileNote, setFileNote] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -56,14 +56,8 @@ const ReplyComplaint = () => {
 
     try {
       // Documents are passed through untouched; images are downscaled before upload.
-      const { file: prepared, originalBytes, bytes } = await prepareAttachmentFile(file);
+      const { file: prepared } = await prepareAttachmentFile(file);
       setAttachment(prepared);
-
-      setFileNote(
-        originalBytes > bytes
-          ? `Image optimised for upload (${Math.round(originalBytes / 1024)}KB → ${Math.round(bytes / 1024)}KB)`
-          : ''
-      );
     } catch (err) {
       setError(err.message || 'Could not process that file');
     }
@@ -92,7 +86,7 @@ const ReplyComplaint = () => {
   };
 
   if (initialLoading) {
-    return <div className="flex justify-center items-center min-h-[200px] text-xl text-gray-600">Loading complaint...</div>;
+    return <LoadingSpinner text="Loading complaint..." size="lg" />;
   }
 
   if (error && !complaint) {
@@ -201,9 +195,6 @@ const ReplyComplaint = () => {
             <div className="mt-2 text-blue-600 text-sm">
               Selected: {attachment.name} ({(attachment.size / 1024 / 1024).toFixed(2)} MB)
             </div>
-          )}
-          {fileNote && (
-            <div className="mt-1 text-green-700 text-sm">{fileNote}</div>
           )}
         </div>
 

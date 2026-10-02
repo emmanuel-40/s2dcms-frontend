@@ -1,13 +1,15 @@
 // Student Complaints List Page
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { studentService } from '../services/studentService';
 import { Eye, EyeOff, Clock } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
+import { RefreshBar } from '../hooks/useBackgroundLoad';
 
 const StudentComplaints = () => {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [sortOrder, setSortOrder] = useState('NEWEST');
@@ -19,9 +21,18 @@ const StudentComplaints = () => {
     loadComplaints();
   }, [statusFilter, sortOrder, page]);
 
+  const isFirstLoad = useRef(true);
+
   const loadComplaints = async () => {
-    try {
+    // Only the very first fetch blanks the page. Changing a filter, sort or page keeps the rows
+    // already on screen and shows a thin progress bar instead, so the list never flashes empty.
+    if (isFirstLoad.current) {
       setLoading(true);
+    } else {
+      setRefreshing(true);
+    }
+
+    try {
       const data = await studentService.getComplaints({
         status: statusFilter,
         sort: sortOrder,
@@ -30,10 +41,13 @@ const StudentComplaints = () => {
       });
       setComplaints(data.content || []);
       setTotalPages(data.pageable?.totalPages || 0);
+      setError('');
     } catch (err) {
       setError(err.message || 'Failed to load complaints');
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      isFirstLoad.current = false;
     }
   };
 
@@ -53,6 +67,7 @@ const StudentComplaints = () => {
 
   return (
     <div className="max-w-6xl mx-auto p-4">
+      <RefreshBar active={refreshing} />
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-800">My Complaints</h1>
         <button 

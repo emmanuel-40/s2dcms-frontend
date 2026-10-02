@@ -65,7 +65,7 @@ const DepartmentProfile = () => {
     setError('');
 
     try {
-      const { file: prepared, originalBytes, bytes } = await prepareProfileImage(file);
+      const { file: prepared } = await prepareProfileImage(file);
 
       setImageFile(prepared);
       setImagePreview(URL.createObjectURL(prepared));
@@ -74,12 +74,6 @@ const DepartmentProfile = () => {
       // Previously the remove flag stayed set and this branch was unreachable - the image was
       // silently discarded on save and the user saw the removal win instead.
       setRemoveProfile(false);
-
-      setSuccess(
-        originalBytes > bytes
-          ? `Image ready (${Math.round(originalBytes / 1024)}KB → ${Math.round(bytes / 1024)}KB)`
-          : ''
-      );
     } catch (err) {
       setError(err.message || 'Could not process that image');
     }

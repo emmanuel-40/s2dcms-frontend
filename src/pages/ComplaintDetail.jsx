@@ -1,5 +1,5 @@
 // Complaint Detail Page with AI Features
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
 import { studentService } from '../services/studentService';
@@ -7,12 +7,15 @@ import { authService } from '../services/authService';
 import { Eye, EyeOff, Copy, Check } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
 import AttachmentModal from '../components/AttachmentModal';
+import LoadingSpinner from '../components/LoadingSpinner';
+import { RefreshBar } from '../hooks/useBackgroundLoad';
 import { assetUrl } from '../config';
 
 const ComplaintDetail = ({ userType }) => {
   const { id } = useParams();
   const [complaint, setComplaint] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -33,16 +36,28 @@ const ComplaintDetail = ({ userType }) => {
     loadComplaint();
   }, [id, userType]);
 
+  const hasLoadedOnce = useRef(false);
+
   const loadComplaint = async () => {
-    try {
+    // Only the very first fetch blanks the page. Refetching after an action (e.g. closing the
+    // complaint) keeps the rendered detail on screen and shows a thin progress bar instead.
+    if (hasLoadedOnce.current) {
+      setRefreshing(true);
+    } else {
       setLoading(true);
+    }
+
+    try {
       const service = userType === 'student' ? studentService : departmentService;
       const data = await service.getComplaint(id);
       setComplaint(data);
+      setError('');
     } catch (err) {
       setError(err.message || 'Failed to load complaint');
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      hasLoadedOnce.current = true;
     }
   };
 
@@ -114,7 +129,7 @@ const ComplaintDetail = ({ userType }) => {
   };
 
   if (loading) {
-    return <div className="flex justify-center items-center min-h-[200px] text-xl text-gray-600">Loading complaint details...</div>;
+    return <LoadingSpinner text="Loading complaint details..." size="lg" />;
   }
 
   if (error) {
@@ -135,6 +150,7 @@ const ComplaintDetail = ({ userType }) => {
 
   return (
     <div className="max-w-3xl mx-auto p-4">
+      <RefreshBar active={refreshing} />
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Complaint Details</h1>
         <button 

@@ -13,7 +13,6 @@ const NewComplaint = () => {
     content: '',
   });
   const [attachment, setAttachment] = useState(null);
-  const [fileNote, setFileNote] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
@@ -43,14 +42,8 @@ const NewComplaint = () => {
 
     try {
       // Documents are passed through untouched; images are downscaled before upload.
-      const { file: prepared, originalBytes, bytes } = await prepareAttachmentFile(file);
+      const { file: prepared } = await prepareAttachmentFile(file);
       setAttachment(prepared);
-
-      setFileNote(
-        originalBytes > bytes
-          ? `Image optimised for upload (${Math.round(originalBytes / 1024)}KB → ${Math.round(bytes / 1024)}KB)`
-          : ''
-      );
     } catch (err) {
       setError(err.message || 'Could not process that file');
     }
@@ -185,9 +178,6 @@ const NewComplaint = () => {
             <div className="mt-2 text-blue-600 text-sm">
               Selected: {attachment.name} ({(attachment.size / 1024 / 1024).toFixed(2)} MB)
             </div>
-          )}
-          {fileNote && (
-            <div className="mt-1 text-green-700 text-sm">{fileNote}</div>
           )}
         </div>
 

@@ -69,19 +69,13 @@ const StudentProfile = () => {
     setError('');
 
     try {
-      const { file: prepared, originalBytes, bytes } = await prepareProfileImage(file);
+      const { file: prepared } = await prepareProfileImage(file);
 
       setImageFile(prepared);
       setImagePreview(URL.createObjectURL(prepared));
 
       // Choosing a picture is an explicit replacement, so it supersedes a pending removal.
-        setRemoveProfile(false);
-
-      setSuccess(
-        originalBytes > bytes
-          ? `Image ready (${Math.round(originalBytes / 1024)}KB → ${Math.round(bytes / 1024)}KB)`
-          : ''
-      );
+      setRemoveProfile(false);
     } catch (err) {
       setError(err.message || 'Could not process that image');
     }
