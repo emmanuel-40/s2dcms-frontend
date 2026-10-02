@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { studentService } from '../services/studentService';
 import { authService } from '../services/authService';
 import { apiClient } from '../services/apiClient';
+import { validateFile } from '../utils/fileValidation';
+import { prepareAttachmentFile } from '../utils/imageResize';
 
 const NewComplaint = () => {
   const [formData, setFormData] = useState({
@@ -11,6 +13,7 @@ const NewComplaint = () => {
     content: '',
   });
   const [attachment, setAttachment] = useState(null);
+  const [fileNote, setFileNote] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
@@ -23,31 +26,33 @@ const NewComplaint = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const validateFile = (file) => {
-    // Check file size (5MB limit)
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    if (file.size > maxSize) {
-      return { valid: false, error: 'File size must be less than 5MB' };
-    }
-    
-    // Check file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-    if (!allowedTypes.includes(file.type)) {
-      return { valid: false, error: 'Only images (JPEG, PNG) and documents (PDF, Word) are allowed' };
-    }
-    
-    return { valid: true };
-  };
-
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const validation = validateFile(file);
-      if (!validation.valid) {
-        setError(validation.error);
-        return;
-      }
-      setAttachment(file);
+    // Reset the input so re-picking the same file fires change again.
+    e.target.value = '';
+
+    if (!file) return;
+
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      setError(validation.error);
+      return;
+    }
+
+    setError('');
+
+    try {
+      // Documents are passed through untouched; images are downscaled before upload.
+      const { file: prepared, originalBytes, bytes } = await prepareAttachmentFile(file);
+      setAttachment(prepared);
+
+      setFileNote(
+        originalBytes > bytes
+          ? `Image optimised for upload (${Math.round(originalBytes / 1024)}KB → ${Math.round(bytes / 1024)}KB)`
+          : ''
+      );
+    } catch (err) {
+      setError(err.message || 'Could not process that file');
     }
   };
 
@@ -180,6 +185,9 @@ const NewComplaint = () => {
             <div className="mt-2 text-blue-600 text-sm">
               Selected: {attachment.name} ({(attachment.size / 1024 / 1024).toFixed(2)} MB)
             </div>
+          )}
+          {fileNote && (
+            <div className="mt-1 text-green-700 text-sm">{fileNote}</div>
           )}
         </div>
 

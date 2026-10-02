@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
 import { User, Camera, ArrowLeft, Save } from 'lucide-react';
 import { validateImage } from '../utils/fileValidation';
+import { prepareProfileImage } from '../utils/imageResize';
 import { assetUrl } from '../config';
 import LoadingSpinner from '../components/LoadingSpinner';
 
@@ -40,6 +41,11 @@ const StudentProfile = () => {
       } else {
         setImagePreview(null);
       }
+      // loadProfile() is the source of truth for "what is actually stored", so it also clears any
+      // unsaved intent. Without this, navigating back to this page could re-apply a stale
+      // removeProfile flag and blank an avatar that still exists on the server.
+      setImageFile(null);
+      setRemoveProfile(false);
     } catch (err) {
       setError(err.message || 'Failed to load profile');
     } finally {
@@ -47,20 +53,37 @@ const StudentProfile = () => {
     }
   };
 
-  const handleImageChange = (e) => {
+  const handleImageChange = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const validation = validateImage(file);
-      if (!validation.valid) {
-        setError(validation.error);
-        return;
-      }
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+    // Reset the input so re-picking the same file fires change again (it would not after a removal).
+    e.target.value = '';
+
+    if (!file) return;
+
+    const validation = validateImage(file);
+    if (!validation.valid) {
+      setError(validation.error);
+      return;
+    }
+
+    setError('');
+
+    try {
+      const { file: prepared, originalBytes, bytes } = await prepareProfileImage(file);
+
+      setImageFile(prepared);
+      setImagePreview(URL.createObjectURL(prepared));
+
+      // Choosing a picture is an explicit replacement, so it supersedes a pending removal.
+        setRemoveProfile(false);
+
+      setSuccess(
+        originalBytes > bytes
+          ? `Image ready (${Math.round(originalBytes / 1024)}KB → ${Math.round(bytes / 1024)}KB)`
+          : ''
+      );
+    } catch (err) {
+      setError(err.message || 'Could not process that image');
     }
   };
 
@@ -77,10 +100,12 @@ const StudentProfile = () => {
     try {
       const formDataToSend = new FormData();
       formDataToSend.append('name', formData.name);
-      if (removeProfile) {
-        formDataToSend.append('removeProfile', 'true');
-      } else if (imageFile) {
+      // Removal and replacement are mutually exclusive intents about one field; handleImageChange
+      // clears the flag when a new picture is chosen, so exactly one of these can be set.
+      if (imageFile) {
         formDataToSend.append('image', imageFile);
+      } else if (removeProfile) {
+        formDataToSend.append('removeProfile', 'true');
       }
 
       await studentService.updateProfile(formDataToSend);
@@ -172,21 +197,47 @@ const StudentProfile = () => {
                   className="hidden"
                 />
               </div>
-              <div className="flex items-center gap-4 mt-4">
+              <div className="flex flex-col items-center gap-2 mt-4">
                 <p className="text-sm text-gray-600 font-medium">Click camera icon to change profile picture</p>
-                {imagePreview && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRemoveProfile(true);
-                      setImagePreview(null);
-                      setImageFile(null);
-                    }}
-                    className="text-sm text-red-600 hover:text-red-800 font-medium"
-                  >
-                    Remove Picture
-                  </button>
-                )}
+                <div className="flex items-center gap-4 h-6">
+                  {/* Shows whenever a picture is on screen - saved or newly picked.  */}
+                  {imagePreview && !removeProfile && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRemoveProfile(true);
+                        setImageFile(null);
+                        setImagePreview(null);
+                        setSuccess('');
+                        setError('');
+                      }}
+                      className="text-sm text-red-600 hover:text-red-800 font-medium"
+                    >
+                      Remove Picture
+                    </button>
+                  )}
+
+                  {/* Undo for a pending, unsaved removal. */}
+                  {removeProfile && (
+                    <>
+                      <span className="text-sm text-amber-700 font-medium">
+                        Will be removed on save
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRemoveProfile(false);
+                          setImagePreview(
+                            profile?.profilePicturePath ? assetUrl(profile.profilePicturePath) : null
+                          );
+                        }}
+                        className="text-sm text-blue-600 hover:text-blue-800 font-medium underline"
+                      >
+                        Undo
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
 

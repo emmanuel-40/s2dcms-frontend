@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
 import { validateFile } from '../utils/fileValidation';
+import { prepareAttachmentFile } from '../utils/imageResize';
 import { Download } from 'lucide-react';
 import AttachmentModal from '../components/AttachmentModal';
 
@@ -11,6 +12,7 @@ const ReplyComplaint = () => {
   const [complaint, setComplaint] = useState(null);
   const [reply, setReply] = useState('');
   const [attachment, setAttachment] = useState(null);
+  const [fileNote, setFileNote] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -37,15 +39,33 @@ const ReplyComplaint = () => {
     }
   };
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    if (file) {
-      const validation = validateFile(file);
-      if (!validation.valid) {
-        setError(validation.error);
-        return;
-      }
-      setAttachment(file);
+    // Reset the input so re-picking the same file fires change again.
+    e.target.value = '';
+
+    if (!file) return;
+
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      setError(validation.error);
+      return;
+    }
+
+    setError('');
+
+    try {
+      // Documents are passed through untouched; images are downscaled before upload.
+      const { file: prepared, originalBytes, bytes } = await prepareAttachmentFile(file);
+      setAttachment(prepared);
+
+      setFileNote(
+        originalBytes > bytes
+          ? `Image optimised for upload (${Math.round(originalBytes / 1024)}KB → ${Math.round(bytes / 1024)}KB)`
+          : ''
+      );
+    } catch (err) {
+      setError(err.message || 'Could not process that file');
     }
   };
 
@@ -176,11 +196,14 @@ const ReplyComplaint = () => {
             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />
-          <small className="text-gray-600">Max file size: 20MB. Accepted formats: PDF, JPG, PNG, DOC, DOCX</small>
+          <small className="text-gray-600">Max file size: 5MB. Accepted formats: PDF, JPG, PNG, DOC, DOCX</small>
           {attachment && (
             <div className="mt-2 text-blue-600 text-sm">
               Selected: {attachment.name} ({(attachment.size / 1024 / 1024).toFixed(2)} MB)
             </div>
+          )}
+          {fileNote && (
+            <div className="mt-1 text-green-700 text-sm">{fileNote}</div>
           )}
         </div>
 

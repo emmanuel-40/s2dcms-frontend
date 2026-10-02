@@ -11,7 +11,16 @@ const ALLOWED_MIME_TYPES = [
 
 const ALLOWED_EXTENSIONS = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx'];
 
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+/**
+ * Must stay in step with the server: FileStorageService validates against `file.max-size` (5MB)
+ * and both controllers reject anything larger.
+ */
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+/**
+ * Derived from MAX_FILE_SIZE .
+ */
+const MAX_FILE_SIZE_MB = Math.round(MAX_FILE_SIZE / (1024 * 1024));
 
 export const validateFile = (file) => {
   if (!file) {
@@ -20,7 +29,7 @@ export const validateFile = (file) => {
 
   // Check file size
   if (file.size > MAX_FILE_SIZE) {
-    return { valid: false, error: 'File size exceeds 20MB limit' };
+    return { valid: false, error: `File size exceeds ${MAX_FILE_SIZE_MB}MB limit` };
   }
 
   // Check MIME type
