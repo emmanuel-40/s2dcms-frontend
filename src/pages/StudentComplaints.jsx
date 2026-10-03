@@ -1,51 +1,30 @@
 // Student Complaints List Page
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { studentService } from '../services/studentService';
 import { Eye, EyeOff, Clock } from 'lucide-react';
 import PageSkeleton from '../components/PageSkeleton';
-import { useBackgroundLoad } from '../hooks/useBackgroundLoad';
-import { prefetchCache, cacheKeys } from '../utils/prefetchCache';
+import { useComplaintsList } from '../hooks/queries';
 
 const StudentComplaints = () => {
-  /*
-   * THIS DOES NOT SKIP THE FETCH. The effect below calls studentService.getComplaints() on mount
-   * whether or not a seed exists, so the list is always re-read from the server and the response
-   * overwrites these seeded rows. The seed only decides what the FIRST FRAME draws.
-   *
-   * A seed is only read for the DEFAULT view - no filter, newest first, first page. That is
-   * exactly the view NewComplaint navigates into and exactly the state this component initialises
-   * to below, so the prefetch that lands here matches it.
-   *
-   */
-  const seededPage = prefetchCache.get(cacheKeys.defaultList());
-
-  const [complaints, setComplaints] = useState(() => seededPage?.content ?? []);
-  const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [sortOrder, setSortOrder] = useState('NEWEST');
   const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(() => seededPage?.pageable?.totalPages ?? 0);
-  const { loading, run } = useBackgroundLoad();
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    run(async () => {
-      try {
-        const data = await studentService.getComplaints({
-          status: statusFilter,
-          sort: sortOrder,
-          page,
-          size: 10,
-        });
-        setComplaints(data.content || []);
-        setTotalPages(data.pageable?.totalPages || 0);
-        setError('');
-      } catch (err) {
-        setError(err.message || 'Failed to load complaints');
-      }
-    });
-  }, [statusFilter, sortOrder, page, run]);
+  /*
+   * Filter, sort and page all live in the query key, so changing any of them selects a different
+   * query. keepPreviousData inside the hook holds the current rows on screen while the new one
+   * loads, which is why isPending below stays false during a page change and the list never blinks.
+   */
+  const { data, isPending, error } = useComplaintsList('student', {
+    status: statusFilter,
+    sort: sortOrder,
+    page,
+    size: 10,
+  });
+
+  const complaints = data?.content ?? [];
+  const totalPages = data?.pageable?.totalPages ?? 0;
+  const navigate = useNavigate();
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -57,11 +36,9 @@ const StudentComplaints = () => {
     }
   };
 
-  // `&& complaints.length === 0` removes the skeleton on a seeded arrival: loading is still true
-  // while the background refetch runs, but rows are already on screen and replacing them with a
-  // placeholder would be the blink this seeding exists to prevent. Genuinely empty stays a
-  // skeleton on first load, because there is genuinely nothing to render yet.
-  if (loading && complaints.length === 0) {
+  // True only on a genuine first load with nothing cached. A page or filter change is covered by
+  // keepPreviousData, so rows stay visible instead of being swapped for a placeholder.
+  if (isPending) {
     return <PageSkeleton />;
   }
 
@@ -115,7 +92,7 @@ const StudentComplaints = () => {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded">
-          {error}
+          {error.message || 'Failed to load complaints'}
         </div>
       )}
 

@@ -17,8 +17,83 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Vite** - Build tool and dev server
 - **Tailwind CSS** - Utility-first CSS framework
 - **React Router DOM** - Client-side routing
+- **TanStack Query** - Server-state caching, request de-duplication and cache invalidation
 - **Axios** - HTTP client
 - **Lucide React** - Icon library
+
+## Server State & Caching
+
+All remote data is managed by **TanStack Query**. Pages do not fetch in `useEffect` or hold loading
+flags — they read from a cache that the query layer keeps fresh.
+
+### Where the queries live
+
+`src/hooks/queries.js` owns every query key, every fetch function and every invalidation rule.
+Pages import hooks from it and never call a service directly for reads.
+
+Keeping keys and their invalidation rules in one file is the point: sending a reply has to
+invalidate the complaint it changed, and that coupling needs to sit next to the key it invalidates.
+Spread across nine pages it drifts, and the result is a list still showing pre-reply data.
+
+### Cache configuration
+
+`src/lib/queryClient.js`:
+
+| Option | Value | Why |
+| --- | --- | --- |
+| `staleTime` | 30s | A cached result is served without refetching for this long. Covers returning to a page you just left. |
+| `gcTime` | 5min | How long an unmounted query is retained. Must exceed `staleTime` or the cache drops a result between leaving and returning. |
+| `retry` (queries) | 1 | A `401`/`403`/`404` here is a real answer. The default of 3 only delays the message. |
+| `retry` (mutations) | 0 | A failed reply must not resend text the user may no longer want sent. |
+| `refetchOnWindowFocus` | on | Complaints arrive from other people, so returning to the tab should quietly update the list. |
+
+### Scoped keys
+
+Every key includes a `scope` (`'student'` or `'department'`):
+
+```js
+queryKeys.complaintList('student', { status, sort, page, size })
+queryKeys.complaintDetail('department', id)
+```
+
+Without it, a student who logs out and a department who logs in on the same tab would share a
+cache, and the second user would briefly be served the first user's complaints. `AuthContext.logout`
+additionally calls `queryClient.clear()` so nothing survives the session.
+
+`invalidateQueries` matches by key **prefix**, so invalidating `['complaints', 'student']` refreshes
+the detail view, the list, and the dashboard's recent slice together — which is what a new complaint
+requires, since all three change.
+
+### Loading states
+
+- **First load** — `isPending` is true and the page renders `PageSkeleton`, a placeholder shaped like
+  the page so the screen is never an undifferentiated blank.
+- **Paging and filtering** — `placeholderData: keepPreviousData` holds the current rows on screen
+  while the next query loads, so those interactions never blink.
+- **Revisiting a page** — cached data renders immediately and the refetch happens behind it.
+
+### Writes and navigation
+
+Mutations prefetch their destination before the caller navigates:
+
+```js
+const replyMutation = useSendReply(id);
+await replyMutation.mutateAsync(formData);   // resolves only after onSuccess prefetched
+navigate(`/department/complaints/${id}`);    // renders with no skeleton
+```
+
+`mutateAsync` does not resolve until `onSuccess` has finished, so navigation cannot race the
+prefetch. This is what removes the full-screen blink between "Reply sent" and the reply being
+visible.
+
+Profile saves use `setQueryData` with the record the backend already returns, so the form resets
+from the cache with no follow-up request and no loading state.
+
+### Why not React Router data routers?
+
+The app uses `<BrowserRouter>` with `<Routes>`. Data routers would mean rewriting all 17 routes as
+objects with `loaders`, converting every page to `useLoaderData`, and putting the `ProtectedRoute`
+wrappers at risk. `QueryClientProvider` wraps the existing router instead, leaving routing untouched.
 
 ## Design System
 
@@ -126,8 +201,10 @@ npm run preview
 ## Project Structure
 
 **Key Directories:**
-- `src/components/` - Reusable components (ProtectedRoute, ProfileModal, AttachmentModal)
-- `src/context/` - React Context for authentication state management
+- `src/components/` - Reusable components (ProtectedRoute, ProfileModal, AttachmentModal, PageSkeleton, ToastViewport)
+- `src/context/` - React Context for authentication state and toasts
+- `src/hooks/` - `queries.js` (all server state) and shared hooks
+- `src/lib/` - `queryClient.js`, the shared TanStack Query client
 - `src/pages/` - Page components for student and department portals
 - `src/services/` - API service layer with automatic token refresh
 - `src/utils/` - Utility functions and helpers
@@ -254,6 +331,15 @@ The frontend integrates with the following backend endpoints:
 1. Add method to appropriate service file (`studentService.js` or `departmentService.js`)
 2. Use `apiClient` for automatic token refresh
 3. Handle errors appropriately
+
+### Fetching Data in a New Page
+1. Add a query hook to `src/hooks/queries.js` (or reuse an existing one) — include the `scope` in
+   its key
+2. If the query depends on a mutable input like a filter or page number, put that input in the key
+   and set `placeholderData: keepPreviousData` so the view does not blank between selections
+3. Render `<PageSkeleton />` when `isPending`, and read `error.message` for failures
+4. Never call a service directly for reads, and never derive a loading flag by hand — if a page
+   needs to refresh after a write, invalidate the relevant key prefix rather than re-fetching
 
 ### Styling with Tailwind CSS
 - All styling uses Tailwind utility classes

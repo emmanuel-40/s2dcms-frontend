@@ -1,43 +1,32 @@
 // Department Complaints List Page
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { departmentService } from '../services/departmentService';
 import { Eye, EyeOff, Clock } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
 import PageSkeleton from '../components/PageSkeleton';
-import { useBackgroundLoad } from '../hooks/useBackgroundLoad';
+import { useComplaintsList } from '../hooks/queries';
 import { assetUrl } from '../config';
 
 const DepartmentComplaints = () => {
-  const [complaints, setComplaints] = useState([]);
-  const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [sortOrder, setSortOrder] = useState('NEWEST');
   const [page, setPage] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [profileType, setProfileType] = useState(null);
-  const { loading, run } = useBackgroundLoad();
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    run(async () => {
-      try {
-        const data = await departmentService.getComplaints({
-          status: statusFilter,
-          sort: sortOrder,
-          page,
-          size: 10,
-        });
-        setComplaints(data.content || []);
-        setTotalPages(data.pageable?.totalPages || 0);
-        setError('');
-      } catch (err) {
-        setError(err.message || 'Failed to load complaints');
-      }
-    });
-  }, [statusFilter, sortOrder, page, run]);
+  // Filter, sort and page are part of the query key; keepPreviousData inside the hook keeps the
+  // current rows rendered while the next query loads, so paging never flashes a skeleton.
+  const { data, isPending, error } = useComplaintsList('department', {
+    status: statusFilter,
+    sort: sortOrder,
+    page,
+    size: 10,
+  });
+
+  const complaints = data?.content ?? [];
+  const totalPages = data?.pageable?.totalPages ?? 0;
+  const navigate = useNavigate();
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -49,7 +38,9 @@ const DepartmentComplaints = () => {
     }
   };
 
-  if (loading) {
+  // True only on a genuine first load with nothing cached; keepPreviousData covers page and filter
+  // changes, so rows stay visible instead of being swapped for a placeholder.
+  if (isPending) {
     return <PageSkeleton />;
   }
 
@@ -96,7 +87,7 @@ const DepartmentComplaints = () => {
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded">
-          {error}
+          {error.message || 'Failed to load complaints'}
         </div>
       )}
 

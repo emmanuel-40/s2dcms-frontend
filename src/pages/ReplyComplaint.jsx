@@ -1,7 +1,6 @@
 // Reply to Complaint Page with File Upload
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { departmentService } from '../services/departmentService';
 import { validateFile } from '../utils/fileValidation';
 import { prepareAttachmentFile } from '../utils/imageResize';
 import { formatBytes } from '../utils/formatBytes';
@@ -9,19 +8,16 @@ import PageSkeleton from '../components/PageSkeleton';
 import { Download } from 'lucide-react';
 import AttachmentModal from '../components/AttachmentModal';
 import { useToast } from '../context/ToastContext';
-import { prefetchCache, cacheKeys } from '../utils/prefetchCache';
+import { useComplaintDetail, useSendReply } from '../hooks/queries';
 
 const ReplyComplaint = () => {
   const { id } = useParams();
-  const [complaint, setComplaint] = useState(null);
   const [reply, setReply] = useState('');
   const [attachment, setAttachment] = useState(null);
   const [chosenFile, setChosenFile] = useState(null); // { name, size } of what the user picked
   const [preparing, setPreparing] = useState(false);
   const fileInputRef = useRef(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
   const [showAttachmentModal, setShowAttachmentModal] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState(null);
   // Named `toast`, not destructured as `error`: this component already has an `error` state for
@@ -29,24 +25,19 @@ const ReplyComplaint = () => {
   const toast = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadComplaint();
-  }, [id]);
+  const { data: complaint, isPending, error: loadError } = useComplaintDetail('department', id);
+  const replyMutation = useSendReply(id);
 
-  const loadComplaint = async () => {
-    try {
-      setInitialLoading(true);
-      const data = await departmentService.getComplaint(id);
-      setComplaint(data);
-      if (data.reply) {
-        setReply(data.reply);
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to load complaint');
-    } finally {
-      setInitialLoading(false);
+  /*
+   * Prefill the textarea from the loaded complaint, but only with an existing reply. Writing this as
+   * an effect keyed on `complaint` rather than doing it in the fetch handler means it does not
+   * overwrite what the user has already typed if the query refetches underneath them.
+   */
+  useEffect(() => {
+    if (complaint?.reply) {
+      setReply(complaint.reply);
     }
-  };
+  }, [complaint]);
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -92,7 +83,6 @@ const ReplyComplaint = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
     try {
       const formDataObj = new FormData();
@@ -102,37 +92,29 @@ const ReplyComplaint = () => {
         formDataObj.append('attachment', attachment);
       }
 
-      await departmentService.replyToComplaint(formDataObj);
+      /*
+       * mutateAsync does not resolve until the mutation's onSuccess has finished, and that onSuccess
+       * prefetches the complaint this reply just changed.        */
+      await replyMutation.mutateAsync(formDataObj);
 
-      // Raised before navigate() on purpose. The provider sits above the router, so the toast
-      // survives this component unmounting and is still on screen once the detail page renders -
-      // closing the loop between "sending..." and the reply actually being there.
       toast.success('Reply sent. The student has been notified.');
-
-      // Warm the destination before navigating, so the detail page paints its content on the first
-      // frame instead of flashing a skeleton. The reply is already saved at this point, so a failed
-      // warm must NOT block the navigation - the detail page will fetch for itself. Swallowing the
-      // rejection here is safe because warm() only rejects on that fetch; nothing else depends on
-      // it, and the cache is a seed rather than a source of truth.
-      await prefetchCache
-        .warm(cacheKeys.complaint(id), () => departmentService.getComplaint(id))
-        .catch(() => {});
-
       navigate(`/department/complaints/${id}`);
     } catch (err) {
       setError(err.message || 'Failed to submit reply');
-    } finally {
-      setLoading(false);
     }
   };
 
-  if (initialLoading) {
+  if (isPending) {
     return <PageSkeleton cards={0} rows={5} />;
   }
 
-  if (error && !complaint) {
+  // A failed load replaces the page, but a failed submit must not - that error belongs beside the
+  // textarea, which is still on screen. loadError and the inline `error` are therefore kept apart.
+  if (loadError && !complaint) {
     return <div className="max-w-2xl mx-auto mt-8 text-center">
-      <div className="bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded">{error}</div>
+      <div className="bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded">
+        {loadError.message || 'Failed to load complaint'}
+      </div>
       <button 
         onClick={() => navigate('/department/complaints')}
         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -267,10 +249,10 @@ const ReplyComplaint = () => {
           </button>
           <button 
             type="submit" 
-            disabled={loading || preparing}
+            disabled={replyMutation.isPending || preparing}
             className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            {loading ? 'Submitting...' : 'Submit Reply'}
+            {replyMutation.isPending ? 'Submitting...' : 'Submit Reply'}
           </button>
         </div>
       </form>

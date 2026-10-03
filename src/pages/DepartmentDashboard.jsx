@@ -1,69 +1,39 @@
 // Department Dashboard
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { departmentService } from '../services/departmentService';
 import ProfileModal from '../components/ProfileModal';
 import PageSkeleton from '../components/PageSkeleton';
+import { useProfile, useRecentComplaints } from '../hooks/queries';
 import { API_BASE_URL, assetUrl } from '../config';
 
 const DepartmentDashboard = () => {
-  const [profile, setProfile] = useState(null);
-  const [complaints, setComplaints] = useState([]);
-  const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    inProgress: 0,
-    replied: 0,
-    closed: 0,
-  });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [profileType, setProfileType] = useState(null);
   const { logout, user } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  // Independent queries, each cached separately - see the note in StudentDashboard for why this is
+  // no longer one Promise.allSettled call.
+  const profileQuery = useProfile('department');
+  const complaintsQuery = useRecentComplaints('department', 10);
 
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError('');
+  const profile = profileQuery.data;
+  const complaints = complaintsQuery.data?.content ?? [];
+  const error = profileQuery.error?.message || complaintsQuery.error?.message || '';
 
-      const [profileResult, complaintsResult] = await Promise.allSettled([
-        departmentService.getProfile(),
-        departmentService.getComplaints({ page: 0, size: 10 }),
-      ]);
-
-      if (profileResult.status === 'fulfilled') {
-        setProfile(profileResult.value);
-      } else {
-        setError(profileResult.reason?.message || 'Failed to load profile');
-      }
-
-      if (complaintsResult.status === 'fulfilled') {
-        const allComplaints = complaintsResult.value?.content || [];
-        setComplaints(allComplaints);
-        setStats({
-          total: allComplaints.length,
-          pending: allComplaints.filter(c => c.status === 'PENDING').length,
-          inProgress: allComplaints.filter(c => c.status === 'IN_PROGRESS').length,
-          replied: allComplaints.filter(c => c.status === 'REPLIED').length,
-          closed: allComplaints.filter(c => c.status === 'CLOSED').length,
-        });
-      } else if (profileResult.status === 'fulfilled') {
-        setError(complaintsResult.reason?.message || 'Failed to load complaints');
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  
+  const stats = useMemo(
+    () => ({
+      total: complaints.length,
+      pending: complaints.filter((c) => c.status === 'PENDING').length,
+      inProgress: complaints.filter((c) => c.status === 'IN_PROGRESS').length,
+      replied: complaints.filter((c) => c.status === 'REPLIED').length,
+      closed: complaints.filter((c) => c.status === 'CLOSED').length,
+    }),
+    [complaints]
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -80,7 +50,7 @@ const DepartmentDashboard = () => {
     }
   };
 
-  if (loading) {
+  if (profileQuery.isPending || complaintsQuery.isPending) {
     return <PageSkeleton />;
   }
 

@@ -2,30 +2,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
-import { studentService } from '../services/studentService';
 import { authService } from '../services/authService';
 import { Eye, EyeOff, Copy, Check } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
 import AttachmentModal from '../components/AttachmentModal';
 import PageSkeleton from '../components/PageSkeleton';
-import { useBackgroundLoad } from '../hooks/useBackgroundLoad';
+import { useComplaintDetail, useCloseComplaint } from '../hooks/queries';
 import { useToast } from '../context/ToastContext';
-import { prefetchCache, cacheKeys } from '../utils/prefetchCache';
 import { assetUrl } from '../config';
 
 const ComplaintDetail = ({ userType }) => {
   const { id } = useParams();
-
-  /*
-   * Seed from the prefetch cache on the FIRST render.
-   */
-  const seededComplaint = prefetchCache.get(cacheKeys.complaint(id));
-
-  const [complaint, setComplaint] = useState(seededComplaint ?? null);
   const [error, setError] = useState('');
-  const { loading, run } = useBackgroundLoad();
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [closing, setClosing] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [profileType, setProfileType] = useState(null);
@@ -40,27 +29,16 @@ const ComplaintDetail = ({ userType }) => {
   const toast = useToast();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    // Re-seed on id change. useState applies its initialiser only on mount, so without this a
-    // direct complaint -> complaint navigation would keep painting the previous complaint's
-    // content while the new one was still loading - stale rows for the wrong record.
-    setComplaint(prefetchCache.get(cacheKeys.complaint(id)) ?? null);
-
-    loadComplaint();
-  }, [id, userType]);
-
-  const loadComplaint = async () => {
-    await run(async () => {
-      try {
-        const service = userType === 'student' ? studentService : departmentService;
-        const data = await service.getComplaint(id);
-        setComplaint(data);
-        setError('');
-      } catch (err) {
-        setError(err.message || 'Failed to load complaint');
-      }
-    });
-  };
+  /*
+   * userType doubles as the cache scope. That is what stops a complaint fetched through the student
+   * endpoint from being served from cache to a department in the same tab - the two responses carry
+   * different fields, and without it the department would briefly see a student's payload.
+   *
+   * isPending is true only when there is nothing cached for this key yet. After a close, or on a
+   * revisit, the cached copy renders immediately and the refetch happens behind it.
+   */
+  const { data: complaint, isPending, error: loadError } = useComplaintDetail(userType, id);
+  const closeMutation = useCloseComplaint(id);
   const getStatusColor = (status) => {
     switch (status) {
       case 'PENDING': return 'bg-yellow-500';
@@ -72,19 +50,15 @@ const ComplaintDetail = ({ userType }) => {
   };
 
   const handleCloseComplaint = async () => {
-    setClosing(true);
     try {
-      await departmentService.closeComplaint(id);
+      await closeMutation.mutateAsync();
       setShowCloseModal(false);
 
-      
+      // No manual reload: the mutation invalidated the complaint scope, so this page's own detail
+      // query refetches itself and the status badge updates in place, with no loading flag touched.
       toast.success('Complaint closed.');
-
-      loadComplaint(); // Reload to show updated status
     } catch (err) {
       setError(err.message || 'Failed to close complaint');
-    } finally {
-      setClosing(false);
     }
   };
 
@@ -132,25 +106,25 @@ const ComplaintDetail = ({ userType }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // `&& !complaint` is what removes the skeleton from a warmed navigation. `loading` is still true
-  // while the background refetch runs, but there is already real content on screen, and replacing
-  // it with a placeholder would be the very blink this seeding exists to prevent. With no seed -
-  // a cold entry, or someone opening the URL directly - there is genuinely nothing to show and the
-  // skeleton stays correct.
-  if (loading && !complaint) {
-    return <PageSkeleton cards={0} rows={6} />;
-  }
-
-  if (error) {
+  // `loadError` is the fetch failure; `error` is only for action failures (close). Keeping them apart
+  // means a failed close does not replace the whole page with the "back to list" screen, and a
+  // failed fetch is not overwritten by an unrelated action error.
+  if (loadError) {
     return <div className="max-w-2xl mx-auto mt-8 text-center">
-      <div className="bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded">{error}</div>
-      <button 
+      <div className="bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded">
+        {loadError.message || 'Failed to load complaint'}
+      </div>
+      <button
         onClick={() => navigate(userType === 'student' ? '/student/complaints' : '/department/complaints')}
         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
       >
         Back to List
       </button>
     </div>;
+  }
+
+  if (isPending) {
+    return <PageSkeleton cards={0} rows={6} />;
   }
 
   if (!complaint) {
@@ -377,17 +351,17 @@ const ComplaintDetail = ({ userType }) => {
             <div className="flex gap-4">
               <button 
                 onClick={() => setShowCloseModal(false)}
-                disabled={closing}
+                disabled={closeMutation.isPending}
                 className="flex-1 bg-gray-300 text-gray-800 py-2 rounded-lg hover:bg-gray-400 transition-colors disabled:bg-gray-200 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button 
                 onClick={handleCloseComplaint}
-                disabled={closing}
+                disabled={closeMutation.isPending}
                 className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
-                {closing ? 'Closing...' : 'Close Complaint'}
+                {closeMutation.isPending ? 'Closing...' : 'Close Complaint'}
               </button>
             </div>
           </div>

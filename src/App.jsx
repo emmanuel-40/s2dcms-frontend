@@ -2,6 +2,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from './lib/queryClient';
 import { ToastProvider } from './context/ToastContext';
 import ToastViewport from './components/ToastViewport';
 import { ProtectedRoute, StudentRoute, DepartmentRoute, AdminRoute } from './components/ProtectedRoute';
@@ -26,9 +28,12 @@ import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   return (
-    <AuthProvider>
-      <ToastProvider>
-        <Router>
+    // Outermost, so AuthContext can reach the cache to clear it on logout - a query cache that
+    // outlives the session would show one user's complaints to whoever signs in next on this tab.
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>
+        <ToastProvider>
+          <Router>
           {/*
             ToastViewport sits OUTSIDE <Routes>, as a sibling of the router rather than a child of
             any page. Sending a reply navigates away the instant the request resolves; if the toast
@@ -144,9 +149,10 @@ function App() {
           {/* Catch all - redirect to login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
-        </Router>
-      </ToastProvider>
-    </AuthProvider>
+          </Router>
+        </ToastProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 }
 

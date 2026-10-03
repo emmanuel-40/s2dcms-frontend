@@ -1,6 +1,7 @@
 // Authentication Context - Manages auth state and role-based access
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '../services/authService';
+import { queryClient } from '../lib/queryClient';
 import { API_BASE_URL } from '../config';
 
 const AuthContext = createContext(null);
@@ -104,6 +105,12 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     await authService.logout();
+
+    // Drop every cached query. Complaints, profiles and attachments are private to this session;
+    // without this, signing in as someone else on the same tab would briefly render the previous
+    // user's data straight out of the cache, with no request to reveal it was stale.
+    queryClient.clear();
+
     setUser(null);
     setIsAuthenticated(false);
   };

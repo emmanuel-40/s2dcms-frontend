@@ -2,52 +2,35 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { departmentService } from '../services/departmentService';
 import { Building2, Camera, ArrowLeft, Save, Mail } from 'lucide-react';
 import { validateImage } from '../utils/fileValidation';
 import { prepareProfileImage } from '../utils/imageResize';
 import { assetUrl } from '../config';
 import PageSkeleton from '../components/PageSkeleton';
+import { useProfile, useUpdateProfile } from '../hooks/queries';
 
 const DepartmentProfile = () => {
-  const [profile, setProfile] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [removeProfile, setRemoveProfile] = useState(false);
   const { logout } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+  const { data: profile, isPending } = useProfile('department');
+  const updateMutation = useUpdateProfile('department');
 
-  const loadProfile = async () => {
-    try {
-      setLoading(true);
-      const profileData = await departmentService.getProfile();
-      setProfile(profileData);
-      // Only set image preview if there's a valid path
-      if (profileData.departmentProfile && profileData.departmentProfile !== '') {
-        const url = assetUrl(profileData.departmentProfile);
-        setImagePreview(url);
-      } else {
-        setImagePreview(null);
-      }
-      // loadProfile() is the source of truth for "what is actually stored", so it also clears any
-      // unsaved intent. Without this, a stale removeProfile flag could blank an avatar that still
-      // exists on the server.
-      setImageFile(null);
-      setRemoveProfile(false);
-    } catch (err) {
-      setError(err.message || 'Failed to load profile');
-    } finally {
-      setLoading(false);
-    }
-  };
+  /*
+   * The form is populated from the query rather than from a loadProfile() handler. Saving writes the
+   * record the backend already returns straight into the  */
+  useEffect(() => {
+    if (!profile) return;
+
+    setImagePreview(profile.departmentProfile ? assetUrl(profile.departmentProfile) : null);
+    setImageFile(null);
+    setRemoveProfile(false);
+  }, [profile]);
 
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
@@ -83,7 +66,6 @@ const DepartmentProfile = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setSaving(true);
 
     try {
       const formDataToSend = new FormData();
@@ -95,21 +77,13 @@ const DepartmentProfile = () => {
         formDataToSend.append('removeProfile', 'true');
       }
 
-      // updateProfile already returns the saved DepartmentResponse, so the form is updated from that
-      // instead of issuing a second GET.
-      const updated = await departmentService.updateProfile(formDataToSend);
+      // mutateAsync resolves after onSuccess has put the saved record in the cache, so the effect
+      // above has already reset the form by the time the success message shows. No follow-up GET.
+      await updateMutation.mutateAsync(formDataToSend);
 
-      setProfile(updated);
-      setImagePreview(
-        updated.departmentProfile ? assetUrl(updated.departmentProfile) : null
-      );
-      setImageFile(null);
-      setRemoveProfile(false);
       setSuccess('Profile updated successfully!');
     } catch (err) {
       setError(err.message || 'Failed to update profile');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -118,7 +92,7 @@ const DepartmentProfile = () => {
     navigate('/login');
   };
 
-  if (loading) {
+  if (isPending) {
     return <PageSkeleton cards={0} rows={5} />;
   }
 
@@ -262,11 +236,11 @@ const DepartmentProfile = () => {
               <div className="pt-4 border-t border-gray-200">
                 <button
                   type="submit"
-                  disabled={saving || !imageFile}
+                  disabled={updateMutation.isPending || !imageFile}
                   className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold shadow-md"
                 >
                   <Save className="w-5 h-5" />
-                  {saving ? 'Saving...' : 'Update Profile Picture'}
+                  {updateMutation.isPending ? 'Saving...' : 'Update Profile Picture'}
                 </button>
               </div>
             </div>

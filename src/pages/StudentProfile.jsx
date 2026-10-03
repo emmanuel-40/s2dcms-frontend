@@ -2,56 +2,38 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { studentService } from '../services/studentService';
 import { User, Camera, ArrowLeft, Save } from 'lucide-react';
 import { validateImage } from '../utils/fileValidation';
 import { prepareProfileImage } from '../utils/imageResize';
 import { assetUrl } from '../config';
 import PageSkeleton from '../components/PageSkeleton';
+import { useProfile, useUpdateProfile } from '../hooks/queries';
 
 const StudentProfile = () => {
-  const [profile, setProfile] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-  });
+  const [formData, setFormData] = useState({ name: '' });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [removeProfile, setRemoveProfile] = useState(false);
   const { logout } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+  const { data: profile, isPending } = useProfile('student');
+  const updateMutation = useUpdateProfile('student');
 
-  const loadProfile = async () => {
-    try {
-      setLoading(true);
-      const profileData = await studentService.getProfile();
-      setProfile(profileData);
-      setFormData({ name: profileData.name });
-      // Only set image preview if there's a valid path
-      if (profileData.profilePicturePath && profileData.profilePicturePath !== '') {
-        const url = assetUrl(profileData.profilePicturePath);
-        setImagePreview(url);
-      } else {
-        setImagePreview(null);
-      }
-      // loadProfile() is the source of truth for "what is actually stored", so it also clears any
-      // unsaved intent. Without this, navigating back to this page could re-apply a stale
-      // removeProfile flag and blank an avatar that still exists on the server.
-      setImageFile(null);
-      setRemoveProfile(false);
-    } catch (err) {
-      setError(err.message || 'Failed to load profile');
-    } finally {
-      setLoading(false);
-    }
-  };
+  /*
+   * The form is populated from the query rather than from a loadProfile() handler.
+   *
+   */
+  useEffect(() => {
+    if (!profile) return;
+
+    setFormData({ name: profile.name });
+    setImagePreview(profile.profilePicturePath ? assetUrl(profile.profilePicturePath) : null);
+    setImageFile(null);
+    setRemoveProfile(false);
+  }, [profile]);
 
   const handleImageChange = async (e) => {
     const file = e.target.files[0];
@@ -89,7 +71,6 @@ const StudentProfile = () => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setSaving(true);
 
     try {
       const formDataToSend = new FormData();
@@ -102,24 +83,14 @@ const StudentProfile = () => {
         formDataToSend.append('removeProfile', 'true');
       }
 
-      // updateProfile already returns the saved StudentResponse, so the form is updated from that
-      // instead of issuing a second GET. That removes a round trip AND stops loadProfile() from
-      // flipping `loading`, which previously replaced the whole page with a full-screen spinner for
-      // the duration of the refetch.
-      const updated = await studentService.updateProfile(formDataToSend);
+      // mutateAsync resolves after onSuccess has written the saved record into the cache, so the
+      // effect above has already reset the form by the time the success message appears. No
+      // follow-up GET, and no loading state in between.
+      await updateMutation.mutateAsync(formDataToSend);
 
-      setProfile(updated);
-      setFormData({ name: updated.name });
-      setImagePreview(
-        updated.profilePicturePath ? assetUrl(updated.profilePicturePath) : null
-      );
-      setImageFile(null);
-      setRemoveProfile(false);
       setSuccess('Profile updated successfully!');
     } catch (err) {
       setError(err.message || 'Failed to update profile');
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -128,7 +99,7 @@ const StudentProfile = () => {
     navigate('/login');
   };
 
-  if (loading) {
+  if (isPending) {
     return <PageSkeleton cards={0} rows={5} />;
   }
 
@@ -303,11 +274,11 @@ const StudentProfile = () => {
               <div className="pt-4 border-t border-gray-200">
                 <button
                   type="submit"
-                  disabled={saving}
+                  disabled={updateMutation.isPending}
                   className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold shadow-md"
                 >
                   <Save className="w-5 h-5" />
-                  {saving ? 'Saving...' : 'Save Changes'}
+                  {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </button>
               </div>
             </div>

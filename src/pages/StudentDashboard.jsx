@@ -1,51 +1,31 @@
 // Student Dashboard Page
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { studentService } from '../services/studentService';
 import { Eye, EyeOff } from 'lucide-react';
 import PageSkeleton from '../components/PageSkeleton';
+import { useProfile, useRecentComplaints } from '../hooks/queries';
 import { assetUrl } from '../config';
 
 const StudentDashboard = () => {
-  const [profile, setProfile] = useState(null);
-  const [complaints, setComplaints] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const { logout, user } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  /*
+   * Two independent queries rather than one Promise.allSettled blob. Each keeps its own cache entry,
+   * so returning to the dashboard within staleTime renders instantly, and a failure in one does not
+   * discard the other's result the way the combined handler did.
+   *
+   * The profile error is reported on its own because it is the one that matters here - without it
+   * there is no name to greet the user with - while a complaints failure still shows the profile
+   * with an empty list, which is what the previous allSettled version did too.
+   */
+  const profileQuery = useProfile('student');
+  const complaintsQuery = useRecentComplaints('student', 5);
 
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      setError('');
-
-      const [profileResult, complaintsResult] = await Promise.allSettled([
-        studentService.getProfile(),
-        studentService.getComplaints({ page: 0, size: 5 }),
-      ]);
-
-      if (profileResult.status === 'fulfilled') {
-        setProfile(profileResult.value);
-      } else {
-        setError(profileResult.reason?.message || 'Failed to load profile');
-      }
-
-      if (complaintsResult.status === 'fulfilled') {
-        setComplaints(complaintsResult.value?.content || []);
-      } else if (profileResult.status === 'fulfilled') {
-        setError(complaintsResult.reason?.message || 'Failed to load complaints');
-      }
-    } catch (err) {
-      setError(err.message || 'Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const profile = profileQuery.data;
+  const complaints = complaintsQuery.data?.content ?? [];
+  const error = profileQuery.error?.message || complaintsQuery.error?.message || '';
 
   const handleLogout = async () => {
     await logout();
@@ -62,7 +42,7 @@ const StudentDashboard = () => {
     }
   };
 
-  if (loading) {
+  if (profileQuery.isPending || complaintsQuery.isPending) {
     return <PageSkeleton />;
   }
 

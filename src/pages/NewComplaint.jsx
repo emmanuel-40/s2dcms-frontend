@@ -8,7 +8,7 @@ import { validateFile } from '../utils/fileValidation';
 import { prepareAttachmentFile } from '../utils/imageResize';
 import { formatBytes } from '../utils/formatBytes';
 import { useToast } from '../context/ToastContext';
-import { prefetchCache, cacheKeys } from '../utils/prefetchCache';
+import { useSendComplaint } from '../hooks/queries';
 
 const NewComplaint = () => {
   const [formData, setFormData] = useState({
@@ -20,13 +20,13 @@ const NewComplaint = () => {
   const [preparing, setPreparing] = useState(false);
   const fileInputRef = useRef(null);
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiSituation, setAiSituation] = useState('');
   const [aiGeneratedComplaint, setAiGeneratedComplaint] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   // `toast` rather than a destructured `error`: the `error` state above drives the inline message.
   const toast = useToast();
+  const sendMutation = useSendComplaint();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -77,7 +77,6 @@ const NewComplaint = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setLoading(true);
 
     try {
       const formDataObj = new FormData();
@@ -87,26 +86,17 @@ const NewComplaint = () => {
         formDataObj.append('attachment', attachment);
       }
 
-      await studentService.sendComplaint(formDataObj);
+      // mutateAsync does not resolve until onSuccess has prefetched the list this complaint will
+      // appear in, so the navigation below lands on a list that already shows it - no skeleton.
+      await sendMutation.mutateAsync(formDataObj);
 
       // Success only. A failed submit keeps the user on this page, where the inline error sits
       // next to the form - a corner toast would be further away than the thing that caused it.
       toast.success('Complaint submitted successfully.');
 
-      // Warm the list before navigating so it opens on the new complaint rather than a skeleton.
-      // Guarded exactly as the reply path is: the complaint is already stored, so a failed warm
-      // must not strand the user on the form.
-      await prefetchCache
-        .warm(cacheKeys.defaultList(), () =>
-          studentService.getComplaints({ status: 'ALL', sort: 'NEWEST', page: 0, size: 10 })
-        )
-        .catch(() => {});
-
       navigate('/student/complaints');
     } catch (err) {
       setError(err.message || 'Failed to submit complaint');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -248,10 +238,10 @@ const NewComplaint = () => {
           </button>
           <button
             type="submit"
-            disabled={loading || preparing}
+            disabled={sendMutation.isPending || preparing}
             className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
-            {loading ? 'Submitting...' : 'Submit Complaint'}
+            {sendMutation.isPending ? 'Submitting...' : 'Submit Complaint'}
           </button>
         </div>
       </form>
