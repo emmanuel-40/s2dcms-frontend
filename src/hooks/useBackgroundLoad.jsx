@@ -14,8 +14,22 @@ export function useBackgroundLoad() {
   const hasLoadedOnce = useRef(false);
   const mounted = useRef(true);
 
-  useEffect(() => () => {
-    mounted.current = false;
+  /*
+   * Re-arm `mounted` on every mount, not just the first.
+   *
+   * React 18 StrictMode (main.jsx) deliberately runs mount -> unmount -> mount in development to
+   * surface unsafe effects. This cleanup sets mounted.current = false on the simulated unmount,
+   * and it is never set back, so `run()`'s finally block silently skipped every setState
+   * afterwards and the page spun forever. Setting it to true as the effect runs again makes the
+   * guard correct under StrictMode while still ignoring genuinely late responses from an
+   * unmounted component.
+   */
+  useEffect(() => {
+    mounted.current = true;
+
+    return () => {
+      mounted.current = false;
+    };
   }, []);
 
   const run = useCallback(async (loader) => {
