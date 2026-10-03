@@ -236,7 +236,7 @@ const DepartmentProfile = () => {
               <div className="pt-4 border-t border-gray-200">
                 <button
                   type="submit"
-                  disabled={updateMutation.isPending || !imageFile}
+                  disabled={updateMutation.isPending || (!imageFile && !removeProfile)}
                   className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold shadow-md"
                 >
                   <Save className="w-5 h-5" />
