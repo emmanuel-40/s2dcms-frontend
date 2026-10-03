@@ -9,11 +9,19 @@ import ProfileModal from '../components/ProfileModal';
 import AttachmentModal from '../components/AttachmentModal';
 import PageSkeleton from '../components/PageSkeleton';
 import { useBackgroundLoad } from '../hooks/useBackgroundLoad';
+import { useToast } from '../context/ToastContext';
+import { prefetchCache, cacheKeys } from '../utils/prefetchCache';
 import { assetUrl } from '../config';
 
 const ComplaintDetail = ({ userType }) => {
   const { id } = useParams();
-  const [complaint, setComplaint] = useState(null);
+
+  /*
+   * Seed from the prefetch cache on the FIRST render.
+   */
+  const seededComplaint = prefetchCache.get(cacheKeys.complaint(id));
+
+  const [complaint, setComplaint] = useState(seededComplaint ?? null);
   const [error, setError] = useState('');
   const { loading, run } = useBackgroundLoad();
   const [showCloseModal, setShowCloseModal] = useState(false);
@@ -29,9 +37,15 @@ const ComplaintDetail = ({ userType }) => {
   const [showSummary, setShowSummary] = useState(false);
   const [showSuggestedReply, setShowSuggestedReply] = useState(false);
   const [copied, setCopied] = useState(false);
+  const toast = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
+    // Re-seed on id change. useState applies its initialiser only on mount, so without this a
+    // direct complaint -> complaint navigation would keep painting the previous complaint's
+    // content while the new one was still loading - stale rows for the wrong record.
+    setComplaint(prefetchCache.get(cacheKeys.complaint(id)) ?? null);
+
     loadComplaint();
   }, [id, userType]);
 
@@ -62,6 +76,10 @@ const ComplaintDetail = ({ userType }) => {
     try {
       await departmentService.closeComplaint(id);
       setShowCloseModal(false);
+
+      
+      toast.success('Complaint closed.');
+
       loadComplaint(); // Reload to show updated status
     } catch (err) {
       setError(err.message || 'Failed to close complaint');
@@ -114,7 +132,12 @@ const ComplaintDetail = ({ userType }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (loading) {
+  // `&& !complaint` is what removes the skeleton from a warmed navigation. `loading` is still true
+  // while the background refetch runs, but there is already real content on screen, and replacing
+  // it with a placeholder would be the very blink this seeding exists to prevent. With no seed -
+  // a cold entry, or someone opening the URL directly - there is genuinely nothing to show and the
+  // skeleton stays correct.
+  if (loading && !complaint) {
     return <PageSkeleton cards={0} rows={6} />;
   }
 

@@ -2,6 +2,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
+import ToastViewport from './components/ToastViewport';
 import { ProtectedRoute, StudentRoute, DepartmentRoute, AdminRoute } from './components/ProtectedRoute';
 
 // Pages
@@ -25,8 +27,18 @@ import AdminDashboard from './pages/AdminDashboard';
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Routes>
+      <ToastProvider>
+        <Router>
+          {/*
+            ToastViewport sits OUTSIDE <Routes>, as a sibling of the router rather than a child of
+            any page. Sending a reply navigates away the instant the request resolves; if the toast
+            lived inside ReplyComplaint it would be unmounted in the same tick it appeared and the
+            confirmation would vanish before it could be read. Here it outlives the route.
+
+            */}
+          <ToastViewport />
+
+          <Routes>
           {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
@@ -131,8 +143,9 @@ function App() {
           
           {/* Catch all - redirect to login */}
           <Route path="*" element={<Navigate to="/login" replace />} />
-        </Routes>
-      </Router>
+          </Routes>
+        </Router>
+      </ToastProvider>
     </AuthProvider>
   );
 }

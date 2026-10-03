@@ -7,6 +7,8 @@ import { apiClient } from '../services/apiClient';
 import { validateFile } from '../utils/fileValidation';
 import { prepareAttachmentFile } from '../utils/imageResize';
 import { formatBytes } from '../utils/formatBytes';
+import { useToast } from '../context/ToastContext';
+import { prefetchCache, cacheKeys } from '../utils/prefetchCache';
 
 const NewComplaint = () => {
   const [formData, setFormData] = useState({
@@ -23,6 +25,8 @@ const NewComplaint = () => {
   const [aiSituation, setAiSituation] = useState('');
   const [aiGeneratedComplaint, setAiGeneratedComplaint] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
+  // `toast` rather than a destructured `error`: the `error` state above drives the inline message.
+  const toast = useToast();
   const navigate = useNavigate();
 
   const handleChange = (e) => {
@@ -84,6 +88,20 @@ const NewComplaint = () => {
       }
 
       await studentService.sendComplaint(formDataObj);
+
+      // Success only. A failed submit keeps the user on this page, where the inline error sits
+      // next to the form - a corner toast would be further away than the thing that caused it.
+      toast.success('Complaint submitted successfully.');
+
+      // Warm the list before navigating so it opens on the new complaint rather than a skeleton.
+      // Guarded exactly as the reply path is: the complaint is already stored, so a failed warm
+      // must not strand the user on the form.
+      await prefetchCache
+        .warm(cacheKeys.defaultList(), () =>
+          studentService.getComplaints({ status: 'ALL', sort: 'NEWEST', page: 0, size: 10 })
+        )
+        .catch(() => {});
+
       navigate('/student/complaints');
     } catch (err) {
       setError(err.message || 'Failed to submit complaint');

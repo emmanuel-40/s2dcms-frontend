@@ -8,6 +8,8 @@ import { formatBytes } from '../utils/formatBytes';
 import PageSkeleton from '../components/PageSkeleton';
 import { Download } from 'lucide-react';
 import AttachmentModal from '../components/AttachmentModal';
+import { useToast } from '../context/ToastContext';
+import { prefetchCache, cacheKeys } from '../utils/prefetchCache';
 
 const ReplyComplaint = () => {
   const { id } = useParams();
@@ -22,6 +24,9 @@ const ReplyComplaint = () => {
   const [initialLoading, setInitialLoading] = useState(true);
   const [showAttachmentModal, setShowAttachmentModal] = useState(false);
   const [selectedAttachment, setSelectedAttachment] = useState(null);
+  // Named `toast`, not destructured as `error`: this component already has an `error` state for
+  // inline form errors, and shadowing it would silently break the error display.
+  const toast = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -98,6 +103,21 @@ const ReplyComplaint = () => {
       }
 
       await departmentService.replyToComplaint(formDataObj);
+
+      // Raised before navigate() on purpose. The provider sits above the router, so the toast
+      // survives this component unmounting and is still on screen once the detail page renders -
+      // closing the loop between "sending..." and the reply actually being there.
+      toast.success('Reply sent. The student has been notified.');
+
+      // Warm the destination before navigating, so the detail page paints its content on the first
+      // frame instead of flashing a skeleton. The reply is already saved at this point, so a failed
+      // warm must NOT block the navigation - the detail page will fetch for itself. Swallowing the
+      // rejection here is safe because warm() only rejects on that fetch; nothing else depends on
+      // it, and the cache is a seed rather than a source of truth.
+      await prefetchCache
+        .warm(cacheKeys.complaint(id), () => departmentService.getComplaint(id))
+        .catch(() => {});
+
       navigate(`/department/complaints/${id}`);
     } catch (err) {
       setError(err.message || 'Failed to submit reply');
