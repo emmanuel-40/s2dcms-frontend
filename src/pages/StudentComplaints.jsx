@@ -1,55 +1,39 @@
 // Student Complaints List Page
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { studentService } from '../services/studentService';
 import { Eye, EyeOff, Clock } from 'lucide-react';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { RefreshBar } from '../hooks/useBackgroundLoad';
+import RefreshBar from '../components/RefreshBar';
+import { useBackgroundLoad } from '../hooks/useBackgroundLoad';
 
 const StudentComplaints = () => {
   const [complaints, setComplaints] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [sortOrder, setSortOrder] = useState('NEWEST');
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const { loading, refreshing, run } = useBackgroundLoad();
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadComplaints();
-  }, [statusFilter, sortOrder, page]);
-
-  const isFirstLoad = useRef(true);
-
-  const loadComplaints = async () => {
-    // Only the very first fetch blanks the page. Changing a filter, sort or page keeps the rows
-    // already on screen and shows a thin progress bar instead, so the list never flashes empty.
-    if (isFirstLoad.current) {
-      setLoading(true);
-    } else {
-      setRefreshing(true);
-    }
-
-    try {
-      const data = await studentService.getComplaints({
-        status: statusFilter,
-        sort: sortOrder,
-        page,
-        size: 10,
-      });
-      setComplaints(data.content || []);
-      setTotalPages(data.pageable?.totalPages || 0);
-      setError('');
-    } catch (err) {
-      setError(err.message || 'Failed to load complaints');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-      isFirstLoad.current = false;
-    }
-  };
+    run(async () => {
+      try {
+        const data = await studentService.getComplaints({
+          status: statusFilter,
+          sort: sortOrder,
+          page,
+          size: 10,
+        });
+        setComplaints(data.content || []);
+        setTotalPages(data.pageable?.totalPages || 0);
+        setError('');
+      } catch (err) {
+        setError(err.message || 'Failed to load complaints');
+      }
+    });
+  }, [statusFilter, sortOrder, page, run]);
 
   const getStatusColor = (status) => {
     switch (status) {

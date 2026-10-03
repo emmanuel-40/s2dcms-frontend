@@ -8,15 +8,15 @@ import { Eye, EyeOff, Copy, Check } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
 import AttachmentModal from '../components/AttachmentModal';
 import LoadingSpinner from '../components/LoadingSpinner';
-import { RefreshBar } from '../hooks/useBackgroundLoad';
+import RefreshBar from '../components/RefreshBar';
+import { useBackgroundLoad } from '../hooks/useBackgroundLoad';
 import { assetUrl } from '../config';
 
 const ComplaintDetail = ({ userType }) => {
   const { id } = useParams();
   const [complaint, setComplaint] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const { loading, refreshing, run } = useBackgroundLoad();
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closing, setClosing] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -36,31 +36,18 @@ const ComplaintDetail = ({ userType }) => {
     loadComplaint();
   }, [id, userType]);
 
-  const hasLoadedOnce = useRef(false);
-
   const loadComplaint = async () => {
-    // Only the very first fetch blanks the page. Refetching after an action (e.g. closing the
-    // complaint) keeps the rendered detail on screen and shows a thin progress bar instead.
-    if (hasLoadedOnce.current) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-
-    try {
-      const service = userType === 'student' ? studentService : departmentService;
-      const data = await service.getComplaint(id);
-      setComplaint(data);
-      setError('');
-    } catch (err) {
-      setError(err.message || 'Failed to load complaint');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-      hasLoadedOnce.current = true;
-    }
+    await run(async () => {
+      try {
+        const service = userType === 'student' ? studentService : departmentService;
+        const data = await service.getComplaint(id);
+        setComplaint(data);
+        setError('');
+      } catch (err) {
+        setError(err.message || 'Failed to load complaint');
+      }
+    });
   };
-
   const getStatusColor = (status) => {
     switch (status) {
       case 'PENDING': return 'bg-yellow-500';

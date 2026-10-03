@@ -1,9 +1,10 @@
 // Reply to Complaint Page with File Upload
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
 import { validateFile } from '../utils/fileValidation';
 import { prepareAttachmentFile } from '../utils/imageResize';
+import { formatBytes } from '../utils/formatBytes';
 import LoadingSpinner from '../components/LoadingSpinner';
 import { Download } from 'lucide-react';
 import AttachmentModal from '../components/AttachmentModal';
@@ -13,6 +14,9 @@ const ReplyComplaint = () => {
   const [complaint, setComplaint] = useState(null);
   const [reply, setReply] = useState('');
   const [attachment, setAttachment] = useState(null);
+  const [chosenFile, setChosenFile] = useState(null); // { name, size } of what the user picked
+  const [preparing, setPreparing] = useState(false);
+  const fileInputRef = useRef(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -41,26 +45,43 @@ const ReplyComplaint = () => {
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
-    // Reset the input so re-picking the same file fires change again.
-    e.target.value = '';
-
     if (!file) return;
 
     const validation = validateFile(file);
     if (!validation.valid) {
       setError(validation.error);
+      setAttachment(null);
+      setChosenFile(null);
       return;
     }
 
     setError('');
 
+    // Record what the user actually chose BEFORE any optimisation. Images are downscaled before
+    // upload, so the transmitted File is smaller than the selection - showing that size would
+    // misreport what the user picked. The original name and size drive the display; only the
+    // optimised bytes are sent.
+    setChosenFile({ name: file.name, size: file.size });
+    setPreparing(true);
+
     try {
-      // Documents are passed through untouched; images are downscaled before upload.
+      // Documents pass through untouched; images are downscaled.
       const { file: prepared } = await prepareAttachmentFile(file);
       setAttachment(prepared);
-    } catch (err) {
-      setError(err.message || 'Could not process that file');
+    } catch {
+      // Optimisation is best-effort: the original is still a valid upload.
+      setAttachment(file);
+    } finally {
+      setPreparing(false);
     }
+  };
+
+  const clearAttachment = () => {
+    setAttachment(null);
+    setChosenFile(null);
+    setError('');
+    // Clear the native input so picking the same file again fires a change event.
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSubmit = async (e) => {
@@ -186,14 +207,32 @@ const ReplyComplaint = () => {
           <input
             type="file"
             id="attachment"
+            ref={fileInputRef}
             onChange={handleFileChange}
             accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           />
           <small className="text-gray-600">Max file size: 5MB. Accepted formats: PDF, JPG, PNG, DOC, DOCX</small>
-          {attachment && (
-            <div className="mt-2 text-blue-600 text-sm">
-              Selected: {attachment.name} ({(attachment.size / 1024 / 1024).toFixed(2)} MB)
+
+          {/* Shows the file the user actually picked - not the optimised copy that will be
+              transmitted - and offers a way to drop it again. */}
+          {chosenFile && (
+            <div className="mt-2 flex items-center justify-between gap-3 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-sm text-blue-900 font-medium truncate">{chosenFile.name}</p>
+                <p className="text-xs text-blue-700">
+                  {formatBytes(chosenFile.size)}
+                  {preparing ? ' · preparing…' : ''}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={clearAttachment}
+                disabled={preparing}
+                className="shrink-0 text-sm text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
+              >
+                Remove
+              </button>
             </div>
           )}
         </div>
@@ -208,7 +247,7 @@ const ReplyComplaint = () => {
           </button>
           <button 
             type="submit" 
-            disabled={loading}
+            disabled={loading || preparing}
             className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {loading ? 'Submitting...' : 'Submit Reply'}
