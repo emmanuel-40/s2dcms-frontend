@@ -5,7 +5,7 @@ import { departmentService } from '../services/departmentService';
 import { validateFile } from '../utils/fileValidation';
 import { prepareAttachmentFile } from '../utils/imageResize';
 import { formatBytes } from '../utils/formatBytes';
-import LoadingSpinner from '../components/LoadingSpinner';
+import PageSkeleton from '../components/PageSkeleton';
 import { Download } from 'lucide-react';
 import AttachmentModal from '../components/AttachmentModal';
 
@@ -107,7 +107,7 @@ const ReplyComplaint = () => {
   };
 
   if (initialLoading) {
-    return <LoadingSpinner text="Loading complaint..." size="lg" />;
+    return <PageSkeleton cards={0} rows={5} />;
   }
 
   if (error && !complaint) {

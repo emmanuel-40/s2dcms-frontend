@@ -20,17 +20,6 @@ export default {
           900: '#1e3a8a',
         },
       },
-      keyframes: {
-        // Drives RefreshBar in hooks/useBackgroundLoad.js. Indeterminate: the bar sweeps across,
-        // then loops, which reads as "working" without implying a known progress value.
-        loading: {
-          '0%': { transform: 'translateX(-100%)' },
-          '100%': { transform: 'translateX(400%)' },
-        },
-      },
-      animation: {
-        loading: 'loading 1.4s ease-in-out infinite',
-      },
     },
   },
   plugins: [],

@@ -4,8 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
 import { Eye, EyeOff, Clock } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
-import LoadingSpinner from '../components/LoadingSpinner';
-import RefreshBar from '../components/RefreshBar';
+import PageSkeleton from '../components/PageSkeleton';
 import { useBackgroundLoad } from '../hooks/useBackgroundLoad';
 import { assetUrl } from '../config';
 
@@ -19,7 +18,7 @@ const DepartmentComplaints = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [profileType, setProfileType] = useState(null);
-  const { loading, refreshing, run } = useBackgroundLoad();
+  const { loading, run } = useBackgroundLoad();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -51,12 +50,11 @@ const DepartmentComplaints = () => {
   };
 
   if (loading) {
-    return <LoadingSpinner text="Loading complaints..." size="lg" />;
+    return <PageSkeleton />;
   }
 
   return (
     <div className="max-w-6xl mx-auto p-4">
-      <RefreshBar active={refreshing} />
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Department Complaints</h1>
         <button 
@@ -168,24 +166,37 @@ const DepartmentComplaints = () => {
             ))}
           </div>
 
+          {/*
+            Responsive pagination. The label moves below the buttons on narrow screens
+            (order-last + w-full) because "Page 1 of 12" competing for width with two
+            buttons mid-phrase is what made this wrap badly on a phone. Buttons keep a
+            44px min-height, the accessibility floor for a touch target.
+          */}
           {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-4 mt-8">
-              <button 
+            <nav
+              aria-label="Complaint list pages"
+              className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-8"
+            >
+              <button
                 onClick={() => setPage(p => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="min-h-[44px] px-5 sm:px-6 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
-              <span className="text-gray-600">Page {page + 1} of {totalPages}</span>
-              <button 
+
+              <span className="order-last w-full sm:order-none sm:w-auto text-center text-sm sm:text-base text-gray-600">
+                Page {page + 1} of {totalPages}
+              </span>
+
+              <button
                 onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                 disabled={page === totalPages - 1}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="min-h-[44px] px-5 sm:px-6 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 Next
               </button>
-            </div>
+            </nav>
           )}
         </>
       )}

@@ -7,7 +7,7 @@ import { User, Camera, ArrowLeft, Save } from 'lucide-react';
 import { validateImage } from '../utils/fileValidation';
 import { prepareProfileImage } from '../utils/imageResize';
 import { assetUrl } from '../config';
-import LoadingSpinner from '../components/LoadingSpinner';
+import PageSkeleton from '../components/PageSkeleton';
 
 const StudentProfile = () => {
   const [profile, setProfile] = useState(null);
@@ -129,11 +129,7 @@ const StudentProfile = () => {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex justify-center items-center py-32">
-        <LoadingSpinner text="Loading profile..." size="lg" />
-      </div>
-    );
+    return <PageSkeleton cards={0} rows={5} />;
   }
 
   return (

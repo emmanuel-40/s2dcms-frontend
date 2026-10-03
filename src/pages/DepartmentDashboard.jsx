@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { departmentService } from '../services/departmentService';
 import ProfileModal from '../components/ProfileModal';
-import LoadingSpinner from '../components/LoadingSpinner';
+import PageSkeleton from '../components/PageSkeleton';
 import { API_BASE_URL, assetUrl } from '../config';
 
 const DepartmentDashboard = () => {
@@ -81,7 +81,7 @@ const DepartmentDashboard = () => {
   };
 
   if (loading) {
-    return <LoadingSpinner text="Loading dashboard..." size="lg" />;
+    return <PageSkeleton />;
   }
 
   return (

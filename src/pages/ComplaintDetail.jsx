@@ -7,8 +7,7 @@ import { authService } from '../services/authService';
 import { Eye, EyeOff, Copy, Check } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
 import AttachmentModal from '../components/AttachmentModal';
-import LoadingSpinner from '../components/LoadingSpinner';
-import RefreshBar from '../components/RefreshBar';
+import PageSkeleton from '../components/PageSkeleton';
 import { useBackgroundLoad } from '../hooks/useBackgroundLoad';
 import { assetUrl } from '../config';
 
@@ -16,7 +15,7 @@ const ComplaintDetail = ({ userType }) => {
   const { id } = useParams();
   const [complaint, setComplaint] = useState(null);
   const [error, setError] = useState('');
-  const { loading, refreshing, run } = useBackgroundLoad();
+  const { loading, run } = useBackgroundLoad();
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closing, setClosing] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -116,7 +115,7 @@ const ComplaintDetail = ({ userType }) => {
   };
 
   if (loading) {
-    return <LoadingSpinner text="Loading complaint details..." size="lg" />;
+    return <PageSkeleton cards={0} rows={6} />;
   }
 
   if (error) {
@@ -137,7 +136,6 @@ const ComplaintDetail = ({ userType }) => {
 
   return (
     <div className="max-w-3xl mx-auto p-4">
-      <RefreshBar active={refreshing} />
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Complaint Details</h1>
         <button 

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { studentService } from '../services/studentService';
 import { Eye, EyeOff } from 'lucide-react';
-import LoadingSpinner from '../components/LoadingSpinner';
+import PageSkeleton from '../components/PageSkeleton';
 import { assetUrl } from '../config';
 
 const StudentDashboard = () => {
@@ -63,7 +63,7 @@ const StudentDashboard = () => {
   };
 
   if (loading) {
-    return <LoadingSpinner text="Loading dashboard..." size="lg" />;
+    return <PageSkeleton />;
   }
 
   return (
