@@ -209,6 +209,7 @@ const ComplaintDetail = ({ userType }) => {
                   {aiLoading ? 'Processing...' : 'Suggest Reply'}
                 </button>
               </div>
+              <p className="text-xs text-purple-500 mt-2">AI can take a few seconds to respond.</p>
             </div>
           )}
 

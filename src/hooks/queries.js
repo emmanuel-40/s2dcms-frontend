@@ -65,6 +65,15 @@ export const useComplaintsList = (scope, params) =>
     // back to a skeleton. This is what makes paging and filtering feel instant, and it replaces
     // the hand-written useBackgroundLoad hook this replaced.
     placeholderData: keepPreviousData,
+
+    // The list is where a user sits and waits: a student watching for a department reply to flip a
+    // row from OPEN to REPLIED, a department watching for a new complaint to appear. Without this
+    // the badge only changes on tab refocus, so a reply landing while the page is open looks like
+    // nothing happened. 15s matches the open-detail cadence. The page is served from the Redis list
+    // cache server-side (a cache hit, not Postgres), and refetchIntervalInBackground defaults to
+    // false, so a hidden tab stops polling entirely. Paging/filtering still feel instant because
+    // placeholderData holds the previous rows during each poll.
+    refetchInterval: 15_000,
   });
 
 export const useComplaintDetail = (scope, id) =>
@@ -72,6 +81,13 @@ export const useComplaintDetail = (scope, id) =>
     queryKey: queryKeys.complaintDetail(scope, id),
     queryFn: () => serviceFor(scope).getComplaint(id),
     enabled: Boolean(id),
+
+    // A reply from the other party has to arrive on its own while the page is open. Polling the
+    // open complaint is the cheap, stateless stand-in for a WebSocket: the response is tiny, it is
+    // served from the Redis cache server-side, and refetchIntervalInBackground defaults to false,
+    // so a hidden tab stops polling entirely (abandoned tabs cost nothing). 15s is the cadence a
+    // waiting user reads as "live" without a socket or a request storm.
+    refetchInterval: 15_000,
   });
 
 /** The dashboard's recent slice. Separate page size, so a distinct key from DEFAULT_LIST. */
@@ -79,6 +95,13 @@ export const useRecentComplaints = (scope, size) =>
   useQuery({
     queryKey: queryKeys.complaintList(scope, { status: 'ALL', sort: 'NEWEST', page: 0, size }),
     queryFn: () => serviceFor(scope).getComplaints({ status: 'ALL', sort: 'NEWEST', page: 0, size }),
+
+    // Slower cadence than the open-detail poll (15s). A dashboard is a glance, not a live thread,
+    // so 30s keeps status badges fresh without the numbers visibly jumping. refetchOnWindowFocus
+    // already snaps it current the moment the user returns, so this only covers someone who sits
+    // and watches. Served from the Redis list cache server-side, so the poll is cheap; and
+    // refetchIntervalInBackground defaults to false, so a hidden tab stops polling entirely.
+    refetchInterval: 30_000,
   });
 
 /*  mutations  */
