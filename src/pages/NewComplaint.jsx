@@ -2,8 +2,6 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { studentService } from '../services/studentService';
-import { authService } from '../services/authService';
-import { apiClient } from '../services/apiClient';
 import { validateFile } from '../utils/fileValidation';
 import { prepareAttachmentFile } from '../utils/imageResize';
 import { formatBytes } from '../utils/formatBytes';
@@ -16,15 +14,15 @@ const NewComplaint = () => {
     content: '',
   });
   const [attachment, setAttachment] = useState(null);
-  const [chosenFile, setChosenFile] = useState(null); // { name, size } of what the user picked
+  const [chosenFile, setChosenFile] = useState(null);
   const [preparing, setPreparing] = useState(false);
+  const [submitNotice, setSubmitNotice] = useState('');
   const fileInputRef = useRef(null);
   const [error, setError] = useState('');
   const [showAiModal, setShowAiModal] = useState(false);
   const [aiSituation, setAiSituation] = useState('');
   const [aiGeneratedComplaint, setAiGeneratedComplaint] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
-  // `toast` rather than a destructured `error`: the `error` state above drives the inline message.
   const toast = useToast();
   const sendMutation = useSendComplaint();
   const navigate = useNavigate();
@@ -46,20 +44,13 @@ const NewComplaint = () => {
     }
 
     setError('');
-
-    // Record what the user actually chose BEFORE any optimisation. Images are downscaled before
-    // upload, so the transmitted File is smaller than the selection - showing that size would
-    // misreport what the user picked. The original name and size drive the display; only the
-    // optimised bytes are sent.
     setChosenFile({ name: file.name, size: file.size });
     setPreparing(true);
 
     try {
-      // Documents pass through untouched; images are downscaled.
       const { file: prepared } = await prepareAttachmentFile(file);
       setAttachment(prepared);
     } catch {
-      // Optimisation is best-effort: the original is still a valid upload.
       setAttachment(file);
     } finally {
       setPreparing(false);
@@ -70,33 +61,72 @@ const NewComplaint = () => {
     setAttachment(null);
     setChosenFile(null);
     setError('');
-    // Clear the native input so picking the same file again fires a change event.
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setSubmitNotice('');
+
+    const formDataObj = new FormData();
+    formDataObj.append('title', formData.title);
+    formDataObj.append('content', formData.content);
+    if (attachment) {
+      formDataObj.append('attachment', attachment);
+    }
+
+    // Idempotency key: one per submission attempt, reused on retry so the
+    // backend can detect and reject duplicate submissions.
+    const idempotencyKey = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+
+    let attempts = 0;
+    const maxAttempts = 3;
+
+    const backoffMs = (n) => 500 * Math.pow(2, n) + Math.floor(Math.random() * 300);
+
+    const submitOnce = async () => {
+      try {
+        return await sendMutation.mutateAsync({
+          formData: formDataObj,
+          idempotencyKey,
+        });
+      } catch (err) {
+        const status = err.status ?? (err.response?.status ?? null);
+
+        // 409 = duplicate submission detected by backend; stop immediately.
+        if (status === 409) {
+          setError('This complaint was already submitted. Please check your complaints list.');
+          throw err;
+        }
+
+        // 503 = backend idempotency store unavailable; retry with same key.
+        if (status === 503 && attempts < maxAttempts) {
+          attempts += 1;
+          const delay = backoffMs(attempts - 1);
+          setSubmitNotice(`Retrying your submission (attempt ${attempts}/${maxAttempts})...`);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          return submitOnce();
+        }
+
+        throw err;
+      }
+    };
 
     try {
-      const formDataObj = new FormData();
-      formDataObj.append('title', formData.title);
-      formDataObj.append('content', formData.content);
-      if (attachment) {
-        formDataObj.append('attachment', attachment);
-      }
-
-      // mutateAsync does not resolve until onSuccess has prefetched the list this complaint will
-      // appear in, so the navigation below lands on a list that already shows it - no skeleton.
-      await sendMutation.mutateAsync(formDataObj);
-
-      // Success only. A failed submit keeps the user on this page, where the inline error sits
-      // next to the form - a corner toast would be further away than the thing that caused it.
+      await submitOnce();
+      setSubmitNotice('');
       toast.success('Complaint submitted successfully.');
-
       navigate('/student/complaints');
     } catch (err) {
-      setError(err.message || 'Failed to submit complaint');
+      setSubmitNotice('');
+      if (!error) {
+        setError(err.message || 'Failed to submit complaint. Please review the form and try again.');
+      }
     }
   };
 
@@ -106,8 +136,6 @@ const NewComplaint = () => {
       const data = await studentService.writeComplaint(aiSituation);
       setAiGeneratedComplaint(data);
     } catch (err) {
-      // The backend already words AI failures for end users (rate limit, outage, rejected
-      // text) and never leaks provider detail, so show it as-is and only fall back locally.
       setError(err.message || 'Failed to generate complaint. Please try again.');
     } finally {
       setAiLoading(false);
@@ -115,23 +143,18 @@ const NewComplaint = () => {
   };
 
   const handleUseGeneratedComplaint = () => {
-    // Parse the AI response to extract title and content
     const lines = aiGeneratedComplaint.split('\n');
     let title = '';
     let content = '';
 
-    // Find TITLE line and extract title
     const titleLineIndex = lines.findIndex(line => line.trim().startsWith('TITLE:'));
     if (titleLineIndex !== -1) {
       title = lines[titleLineIndex].replace('TITLE:', '').trim();
     }
 
-    // Find CONTENT line and extract content (everything after CONTENT:)
     const contentLineIndex = lines.findIndex(line => line.trim().startsWith('CONTENT:'));
     if (contentLineIndex !== -1) {
-      // Get everything after "CONTENT:" on the same line
       const contentLine = lines[contentLineIndex].split('CONTENT:')[1]?.trim() || '';
-      // Add all lines after the CONTENT line
       const remainingLines = lines.slice(contentLineIndex + 1).join('\n').trim();
       content = contentLine + (remainingLines ? '\n' + remainingLines : '');
     }
@@ -161,6 +184,12 @@ const NewComplaint = () => {
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded">
           {error}
+        </div>
+      )}
+
+      {submitNotice && (
+        <div className="bg-blue-50 border border-blue-200 text-blue-700 p-3 mb-4 rounded">
+          {submitNotice}
         </div>
       )}
 
@@ -205,8 +234,6 @@ const NewComplaint = () => {
           />
           <small className="text-gray-600">Max file size: 5MB. Accepted formats: PDF, JPG, PNG, DOC, DOCX</small>
 
-          {/* Shows the file the user actually picked - not the optimised copy that will be
-              transmitted - and offers a way to drop it again. */}
           {chosenFile && (
             <div className="mt-2 flex items-center justify-between gap-3 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
               <div className="min-w-0">
@@ -246,7 +273,6 @@ const NewComplaint = () => {
         </div>
       </form>
 
-      {/* Floating AI Button */}
       <button
         onClick={() => setShowAiModal(true)}
         className="fixed bottom-8 right-8 bg-purple-600 text-white p-4 rounded-full shadow-lg hover:bg-purple-700 transition-colors z-40"
@@ -257,7 +283,6 @@ const NewComplaint = () => {
         </svg>
       </button>
 
-      {/* AI Writing Assistant Modal */}
       {showAiModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">

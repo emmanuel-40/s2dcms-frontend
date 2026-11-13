@@ -8,16 +8,17 @@ import { prepareProfileImage } from '../utils/imageResize';
 import { assetUrl } from '../config';
 import PageSkeleton from '../components/PageSkeleton';
 import { useProfile, useUpdateProfile } from '../hooks/queries';
+import { useToast } from '../context/ToastContext';
 
 const StudentProfile = () => {
   const [formData, setFormData] = useState({ name: '' });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [removeProfile, setRemoveProfile] = useState(false);
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
 
   const { data: profile, isPending } = useProfile('student');
   const updateMutation = useUpdateProfile('student');
@@ -70,7 +71,6 @@ const StudentProfile = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
 
     try {
       const formDataToSend = new FormData();
@@ -88,7 +88,8 @@ const StudentProfile = () => {
       // follow-up GET, and no loading state in between.
       await updateMutation.mutateAsync(formDataToSend);
 
-      setSuccess('Profile updated successfully!');
+      toast.success('Profile updated successfully!');
+      navigate('/student/dashboard');
     } catch (err) {
       setError(err.message || 'Failed to update profile');
     }
@@ -127,11 +128,6 @@ const StudentProfile = () => {
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-600 p-3 mb-4 rounded">
             {error}
-          </div>
-        )}
-        {success && (
-          <div className="bg-green-50 border border-green-200 text-green-600 p-3 mb-4 rounded">
-            {success}
           </div>
         )}
 

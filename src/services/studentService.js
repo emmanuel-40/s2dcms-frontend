@@ -13,8 +13,12 @@ export const studentService = {
   },
 
   // Send complaint
-  sendComplaint: async (formData) => {
-    return await apiClient.postFormData('/students/complaints', formData);
+  sendComplaint: async (formData, idempotencyKey) => {
+    const headers = {};
+    if (idempotencyKey) {
+      headers['Idempotency-Key'] = idempotencyKey;
+    }
+    return await apiClient.postFormData('/students/complaints', formData, { headers });
   },
 
   // Get student complaints

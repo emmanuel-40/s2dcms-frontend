@@ -2,11 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import adminService from '../services/adminService';
 
+const PAGE_SIZE = 10;
+
 const AdminDashboard = () => {
   const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState('departments');
   const [departments, setDepartments] = useState([]);
   const [students, setStudents] = useState([]);
+  const [deptPage, setDeptPage] = useState(0);
+  const [studentPage, setStudentPage] = useState(0);
+  const [deptTotalPages, setDeptTotalPages] = useState(0);
+  const [studentTotalPages, setStudentTotalPages] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -30,18 +36,40 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchData();
-  }, [activeTab]);
+  }, [activeTab, deptPage, studentPage]);
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
       if (activeTab === 'departments') {
-        const data = await adminService.getAllDepartments();
-        setDepartments(data);
+        const data = await adminService.getDepartmentsPage({ page: deptPage, size: PAGE_SIZE });
+        const content = data?.content ?? [];
+        const total = data?.totalPages ?? 0;
+        if (total > 0 && deptPage >= total) {
+          setDeptPage(total - 1);
+          return;
+        }
+        if (content.length === 0 && deptPage > 0 && (data?.totalElements ?? 0) > 0) {
+          setDeptPage(deptPage - 1);
+          return;
+        }
+        setDepartments(content);
+        setDeptTotalPages(total);
       } else {
-        const data = await adminService.getAllStudents();
-        setStudents(data);
+        const data = await adminService.getStudentsPage({ page: studentPage, size: PAGE_SIZE });
+        const content = data?.content ?? [];
+        const total = data?.totalPages ?? 0;
+        if (total > 0 && studentPage >= total) {
+          setStudentPage(total - 1);
+          return;
+        }
+        if (content.length === 0 && studentPage > 0 && (data?.totalElements ?? 0) > 0) {
+          setStudentPage(studentPage - 1);
+          return;
+        }
+        setStudents(content);
+        setStudentTotalPages(total);
       }
     } catch (err) {
       setError('Failed to fetch data');
@@ -56,7 +84,8 @@ const AdminDashboard = () => {
       await adminService.createDepartment(deptForm);
       setShowDeptForm(false);
       setDeptForm({ departmentName: '', email: '', password: '' });
-      fetchData();
+      setDeptPage(0);
+      if (activeTab === 'departments') fetchData();
     } catch (err) {
       setError('Failed to create department');
     }
@@ -121,7 +150,7 @@ const AdminDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 mt-6">
         <div className="flex space-x-4 border-b">
           <button
-            onClick={() => setActiveTab('departments')}
+            onClick={() => { setActiveTab('departments'); setDeptPage(0); }}
             className={`px-4 py-2 font-medium ${
               activeTab === 'departments'
                 ? 'border-b-2 border-blue-500 text-blue-600'
@@ -131,7 +160,7 @@ const AdminDashboard = () => {
             Departments
           </button>
           <button
-            onClick={() => setActiveTab('students')}
+            onClick={() => { setActiveTab('students'); setStudentPage(0); }}
             className={`px-4 py-2 font-medium ${
               activeTab === 'students'
                 ? 'border-b-2 border-blue-500 text-blue-600'
@@ -214,6 +243,33 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
                 </div>
+
+                {deptTotalPages > 1 && (
+                  <nav
+                    aria-label="Department list pages"
+                    className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-6"
+                  >
+                    <button
+                      onClick={() => setDeptPage((p) => Math.max(0, p - 1))}
+                      disabled={deptPage <= 0}
+                      className="min-h-[44px] px-5 sm:px-6 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+
+                    <span className="order-last w-full sm:order-none sm:w-auto text-center text-sm sm:text-base text-gray-600">
+                      Page {deptPage + 1} of {deptTotalPages}
+                    </span>
+
+                    <button
+                      onClick={() => setDeptPage((p) => Math.min(deptTotalPages - 1, p + 1))}
+                      disabled={deptPage >= deptTotalPages - 1}
+                      className="min-h-[44px] px-5 sm:px-6 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </nav>
+                )}
               </div>
             )}
 
@@ -271,6 +327,33 @@ const AdminDashboard = () => {
                     </tbody>
                   </table>
                 </div>
+
+                {studentTotalPages > 1 && (
+                  <nav
+                    aria-label="Student list pages"
+                    className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-6"
+                  >
+                    <button
+                      onClick={() => setStudentPage((p) => Math.max(0, p - 1))}
+                      disabled={studentPage <= 0}
+                      className="min-h-[44px] px-5 sm:px-6 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+
+                    <span className="order-last w-full sm:order-none sm:w-auto text-center text-sm sm:text-base text-gray-600">
+                      Page {studentPage + 1} of {studentTotalPages}
+                    </span>
+
+                    <button
+                      onClick={() => setStudentPage((p) => Math.min(studentTotalPages - 1, p + 1))}
+                      disabled={studentPage >= studentTotalPages - 1}
+                      className="min-h-[44px] px-5 sm:px-6 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </nav>
+                )}
               </div>
             )}
           </>

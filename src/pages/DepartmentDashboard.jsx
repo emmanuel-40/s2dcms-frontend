@@ -1,11 +1,19 @@
 // Department Dashboard
-import React, { useState, useMemo } from 'react';
+import React, { useState, useRef, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ProfileModal from '../components/ProfileModal';
 import PageSkeleton from '../components/PageSkeleton';
-import { useProfile, useRecentComplaints } from '../hooks/queries';
-import { API_BASE_URL, assetUrl } from '../config';
+import { useProfile, useRecentComplaints, useComplaintStats } from '../hooks/queries';
+import { assetUrl } from '../config';
+
+const SCROLL_KEY = 'departmentDashboardScroll';
+const RETURN_KEY = 'departmentDashboardReturn';
+
+// Take control of scroll restoration (browser default fights manual restore).
+if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+  window.history.scrollRestoration = 'manual';
+}
 
 const DepartmentDashboard = () => {
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -14,26 +22,61 @@ const DepartmentDashboard = () => {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
 
+  const shouldRestore = useRef(sessionStorage.getItem(RETURN_KEY) === '1');
+  const consumedReturn = useRef(false);
+  const restoredRef = useRef(false);
+
   // Independent queries, each cached separately - see the note in StudentDashboard for why this is
   // no longer one Promise.allSettled call.
   const profileQuery = useProfile('department');
   const complaintsQuery = useRecentComplaints('department', 10);
+  const statsQuery = useComplaintStats('department');
 
   const profile = profileQuery.data;
   const complaints = complaintsQuery.data?.content ?? [];
-  const error = profileQuery.error?.message || complaintsQuery.error?.message || '';
+  const error = profileQuery.error?.message || complaintsQuery.error?.message || statsQuery.error?.message || '';
 
-  
-  const stats = useMemo(
-    () => ({
-      total: complaints.length,
-      pending: complaints.filter((c) => c.status === 'PENDING').length,
-      inProgress: complaints.filter((c) => c.status === 'IN_PROGRESS').length,
-      replied: complaints.filter((c) => c.status === 'REPLIED').length,
-      closed: complaints.filter((c) => c.status === 'CLOSED').length,
-    }),
-    [complaints]
-  );
+  useLayoutEffect(() => {
+    // Consume return intent once per mount (StrictMode-safe).
+    if (!consumedReturn.current) {
+      consumedReturn.current = true;
+      if (shouldRestore.current) sessionStorage.removeItem(RETURN_KEY);
+    }
+
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    if (!shouldRestore.current) {
+      // Fresh visit, hard refresh, push, or replace: land at top.
+      sessionStorage.removeItem(SCROLL_KEY);
+      const toTop = () => window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      toTop();
+      requestAnimationFrame(toTop);
+      requestAnimationFrame(() => requestAnimationFrame(toTop));
+      [0, 50, 150, 300].forEach((ms) => setTimeout(toTop, ms));
+      return;
+    }
+
+    // Return from detail (back): restore saved scroll after content is ready.
+    if (restoredRef.current || profileQuery.isPending || complaintsQuery.isPending) return;
+    const y = Number(sessionStorage.getItem(SCROLL_KEY));
+    if (!Number.isFinite(y) || y < 0) return;
+    restoredRef.current = true;
+    const restore = () => window.scrollTo({ top: y, left: 0, behavior: 'auto' });
+    restore();
+    requestAnimationFrame(restore);
+    requestAnimationFrame(() => requestAnimationFrame(restore));
+    [0, 50, 120, 250, 400, 700, 1000].forEach((ms) => setTimeout(restore, ms));
+  }, [profileQuery.isPending, complaintsQuery.isPending, complaints.length]);
+
+  const stats = {
+    total: statsQuery.data?.total ?? 0,
+    pending: statsQuery.data?.pending ?? 0,
+    inProgress: statsQuery.data?.inProgress ?? 0,
+    replied: statsQuery.data?.replied ?? 0,
+    closed: statsQuery.data?.closed ?? 0,
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -171,7 +214,11 @@ const DepartmentDashboard = () => {
                     </div>
                   </div>
                   <button 
-                    onClick={() => navigate(`/department/complaints/${complaint.id}`)}
+                    onClick={() => {
+                      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+                      sessionStorage.setItem(RETURN_KEY, '1');
+                      navigate(`/department/complaints/${complaint.id}`);
+                    }}
                     className="bg-blue-600 text-white px-3 py-2 md:px-4 rounded-lg hover:bg-blue-700 transition-colors text-sm md:text-base w-full sm:w-auto"
                   >
                     View Details

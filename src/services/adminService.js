@@ -23,7 +23,26 @@ const adminService = {
     await apiClient.delete(`/students/admin/${id}`);
   },
 
-  // Get all departments
+  // Paged lists (admin)
+  getDepartmentsPage: async (params = {}) => {
+    const { page = 0, size = 10 } = params;
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      size: size.toString(),
+    });
+    return await apiClient.get(`/department/admin/page?${queryParams}`);
+  },
+
+  getStudentsPage: async (params = {}) => {
+    const { page = 0, size = 10 } = params;
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      size: size.toString(),
+    });
+    return await apiClient.get(`/students/admin/page?${queryParams}`);
+  },
+
+  // Get all departments (public list, used by registration/admin view fallback)
   getAllDepartments: async () => {
     return await apiClient.get('/department/all');
   },

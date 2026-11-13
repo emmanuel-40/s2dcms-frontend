@@ -13,6 +13,10 @@ class ApiClient {
   constructor() {
     this.baseURL = API_BASE_URL;
 
+    // How long (ms) the client waits for a response before aborting the fetch.
+    // 30 s covers the backend's worst-case retry window without leaving a tab hung.
+    this.requestTimeoutMs = 30_000;
+
     // Prevent multiple refresh requests at the same time
     this.isRefreshing = false;
 
@@ -184,9 +188,31 @@ class ApiClient {
     );
 
     /*
-     * Make original request.
+     * Attach an AbortController so a hung server cannot leave the tab waiting
+     * forever. The timeout is generous enough to cover the backend's retry window.
      */
-    let response = await fetch(url, fetchOptions);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.requestTimeoutMs);
+    fetchOptions.signal = controller.signal;
+
+    /*
+     * Make original request.
+     * AbortError is converted to a clear timeout message for the caller.
+     */
+    let response;
+    try {
+      response = await fetch(url, fetchOptions);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error(
+          `Request timed out after ${this.requestTimeoutMs / 1000}s. ` +
+            'Please check your connection and try again.',
+        );
+      }
+      throw error;
+    }
+    clearTimeout(timeoutId);
 
     /*
      * Cache the fresh CSRF token the backend exposes on every response.

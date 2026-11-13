@@ -69,4 +69,9 @@ export const departmentService = {
   getAllDepartments: async () => {
     return await apiClient.get('/department/all');
   },
+
+  // Get complaint stats (all complaints for dashboard)
+  getComplaintStats: async () => {
+    return await apiClient.get('/department/complaints/stats');
+  },
 };

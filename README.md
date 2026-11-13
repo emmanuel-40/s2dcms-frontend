@@ -355,8 +355,18 @@ The frontend integrates with the following backend endpoints:
 - **Borders**: `border`, `rounded-lg`, `shadow-md`
 - **Interactivity**: `hover:bg-blue-700`, `transition-colors`
 
-## Security Best Practices Implemented
+## Complaint Submission Retry
 
+When a student submits a complaint and the backend returns `503` (service temporarily unavailable, usually because the notification worker is still starting up), the frontend retries up to **3 times**. It stops immediately on `200`, `409`, or `400`  those are definitive answers and retrying would not help.
+
+During the retry window the user sees:
+
+> Retrying your submission. The notification service is warming up, so this will take only a moment.
+
+This keeps the user informed instead of showing a bare error while the free-tier backend wakes up.
+
+
+## Security Best Practices Implemented
 1. **HttpOnly Cookie Storage**: tokens arrive via `Set-Cookie` and are unreadable to application JavaScript
 2. **Zero Token Surface**: no token is read from, written to, or logged from `localStorage`/`sessionStorage`; the login response body has no token fields
 3. **CSRF Protection**: `XSRF-TOKEN` cookie mirrored into the `X-XSRF-TOKEN` header on every unsafe method
@@ -373,6 +383,28 @@ The frontend integrates with the following backend endpoints:
 - Firefox (latest)
 - Safari (latest)
 - Edge (latest)
+
+## Reliability & Auto-Retry
+
+Complaint submission retries automatically on transient server failure:
+
+- **Trigger**: HTTP 503 from the backend (service temporarily unavailable)
+- **Max attempts**: 3 total
+- **Backoff**: Exponential with jitter — `500 ms × 2^n + random(0–300 ms)`
+- **Fail fast**: HTTP 200 (saved), 400 (validation), and 409 (duplicate complaint) stop immediately with no retry
+- **Client-side timeout**: `AbortController` aborts the `fetch()` after 30 seconds if the server hasn't responded. The caller sees a clear "Request timed out" message instead of a hung tab.
+
+### Timing example
+
+| Step | Delay before next call |
+|------|------------------------|
+| Attempt 1 fails (503) | wait **500–800 ms** → Attempt 2 |
+| Attempt 2 fails (503) | wait **1000–1300 ms** → Attempt 3 |
+| Attempt 3 fails (503) | give up — error shown to user |
+
+**Worst-case retry delays only: ~2.1 seconds.** Jitter spreads out retries so many users hitting a recovering service at once do not slam it all at the same instant (thundering-herd prevention).
+
+The per-attempt server-side timeouts are: Groq AI 3 s connect + 8 s read (3 attempts ≈ 35 s worst case), Brevo email 10 s connect + 10 s read (runs on a backend consumer thread, not the client). The frontend aborts at 30 s so a user is never left waiting indefinitely.
 
 # Deployment
 
@@ -417,7 +449,7 @@ exposes it at build time, so redeploy after changing it.
 
 ## License
 
-MIT License — see the [LICENSE](LICENSE) file in this repository for details.
+MIT License - see the [LICENSE](LICENSE) file in this repository for details.
 
 ## Author
 

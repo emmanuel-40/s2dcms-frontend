@@ -25,6 +25,7 @@ export const queryKeys = {
   profile: (scope) => ['profile', scope],
   complaintList: (scope, params) => ['complaints', scope, 'list', params],
   complaintDetail: (scope, id) => ['complaints', scope, 'detail', String(id)],
+  complaintStats: (scope) => ['complaints', scope, 'stats'],
 
   // Prefix covering every complaint query for a scope, so one invalidateQueries call refreshes the
   // detail, the list, and the dashboard's recent slice together. A new complaint can change all
@@ -104,13 +105,23 @@ export const useRecentComplaints = (scope, size) =>
     refetchInterval: 30_000,
   });
 
+/** Dashboard overview stats (all complaints) for department. */
+export const useComplaintStats = (scope) =>
+  useQuery({
+    queryKey: queryKeys.complaintStats(scope),
+    queryFn: () => (scope === 'department' ? departmentService.getComplaintStats() : Promise.resolve(null)),
+    enabled: scope === 'department',
+    refetchInterval: 30_000,
+  });
+
 /*  mutations  */
 
 export const useSendComplaint = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (formData) => studentService.sendComplaint(formData),
+    mutationFn: ({ formData, idempotencyKey }) =>
+      studentService.sendComplaint(formData, idempotencyKey),
 
     onSuccess: async () => {
       // Warm the list before the caller navigates to it, so the new complaint is on screen on the

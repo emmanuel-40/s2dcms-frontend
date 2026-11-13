@@ -1,5 +1,5 @@
 // Student Dashboard Page
-import React from 'react';
+import React, { useRef, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
@@ -7,9 +7,21 @@ import PageSkeleton from '../components/PageSkeleton';
 import { useProfile, useRecentComplaints } from '../hooks/queries';
 import { assetUrl } from '../config';
 
+const SCROLL_KEY = 'studentDashboardScroll';
+const RETURN_KEY = 'studentDashboardReturn';
+
+// Take control of scroll restoration (browser default fights manual restore).
+if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+  window.history.scrollRestoration = 'manual';
+}
+
 const StudentDashboard = () => {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
+
+  const shouldRestore = useRef(sessionStorage.getItem(RETURN_KEY) === '1');
+  const consumedReturn = useRef(false);
+  const restoredRef = useRef(false);
 
   /*
    * Two independent queries rather than one Promise.allSettled blob. Each keeps its own cache entry,
@@ -26,6 +38,40 @@ const StudentDashboard = () => {
   const profile = profileQuery.data;
   const complaints = complaintsQuery.data?.content ?? [];
   const error = profileQuery.error?.message || complaintsQuery.error?.message || '';
+
+  useLayoutEffect(() => {
+    // Consume return intent once per mount (StrictMode-safe).
+    if (!consumedReturn.current) {
+      consumedReturn.current = true;
+      if (shouldRestore.current) sessionStorage.removeItem(RETURN_KEY);
+    }
+
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    if (!shouldRestore.current) {
+      // Fresh visit, hard refresh, push, or replace: land at top.
+      sessionStorage.removeItem(SCROLL_KEY);
+      const toTop = () => window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      toTop();
+      requestAnimationFrame(toTop);
+      requestAnimationFrame(() => requestAnimationFrame(toTop));
+      [0, 50, 150, 300].forEach((ms) => setTimeout(toTop, ms));
+      return;
+    }
+
+    // Return from detail (back): restore saved scroll after content is ready.
+    if (restoredRef.current || profileQuery.isPending || complaintsQuery.isPending) return;
+    const y = Number(sessionStorage.getItem(SCROLL_KEY));
+    if (!Number.isFinite(y) || y < 0) return;
+    restoredRef.current = true;
+    const restore = () => window.scrollTo({ top: y, left: 0, behavior: 'auto' });
+    restore();
+    requestAnimationFrame(restore);
+    requestAnimationFrame(() => requestAnimationFrame(restore));
+    [0, 50, 120, 250, 400, 700, 1000].forEach((ms) => setTimeout(restore, ms));
+  }, [profileQuery.isPending, complaintsQuery.isPending, complaints.length]);
 
   const handleLogout = async () => {
     await logout();
@@ -143,7 +189,11 @@ const StudentDashboard = () => {
                     </p>
                   </div>
                   <button
-                    onClick={() => navigate(`/student/complaints/${complaint.id}`)}
+                    onClick={() => {
+                      sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+                      sessionStorage.setItem(RETURN_KEY, '1');
+                      navigate(`/student/complaints/${complaint.id}`);
+                    }}
                     className="bg-blue-600 text-white px-3 py-2 md:px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-sm text-sm md:text-base w-full sm:w-auto"
                   >
                     View Details

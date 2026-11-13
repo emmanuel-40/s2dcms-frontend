@@ -1,5 +1,5 @@
 // Complaint Detail Page with AI Features
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { departmentService } from '../services/departmentService';
 import { authService } from '../services/authService';
@@ -28,6 +28,17 @@ const ComplaintDetail = ({ userType }) => {
   const [copied, setCopied] = useState(false);
   const toast = useToast();
   const navigate = useNavigate();
+
+  // Detail pages should always start at top (including when opened from a scrolled list).
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [id]);
+
+  const listPath = userType === 'student' ? '/student/complaints' : '/department/complaints';
+  const goBackToList = () => {
+    if (window.history.length > 1) navigate(-1);
+    else navigate(listPath);
+  };
 
   /*
    * userType doubles as the cache scope. That is what stops a complaint fetched through the student
@@ -115,7 +126,7 @@ const ComplaintDetail = ({ userType }) => {
         {loadError.message || 'Failed to load complaint'}
       </div>
       <button
-        onClick={() => navigate(userType === 'student' ? '/student/complaints' : '/department/complaints')}
+        onClick={goBackToList}
         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
       >
         Back to List
@@ -136,7 +147,7 @@ const ComplaintDetail = ({ userType }) => {
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Complaint Details</h1>
         <button 
-          onClick={() => navigate(userType === 'student' ? '/student/complaints' : '/department/complaints')}
+          onClick={goBackToList}
           className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
         >
           Back to List

@@ -1,22 +1,51 @@
 // Department Complaints List Page
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, Clock } from 'lucide-react';
 import ProfileModal from '../components/ProfileModal';
 import PageSkeleton from '../components/PageSkeleton';
 import { useComplaintsList } from '../hooks/queries';
 import { assetUrl } from '../config';
 
+const SCROLL_KEY = 'departmentComplaintsScroll';
+const RETURN_KEY = 'departmentComplaintsReturn';
+
+// Take control of scroll restoration (browser default fights manual restore).
+if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+  window.history.scrollRestoration = 'manual';
+}
+
+const VALID_STATUS = new Set(['ALL', 'PENDING', 'IN_PROGRESS', 'REPLIED', 'CLOSED']);
+const VALID_SORT = new Set(['NEWEST', 'OLDEST']);
+
+const parseParams = (searchParams) => {
+  const status = VALID_STATUS.has(searchParams.get('status')) ? searchParams.get('status') : 'ALL';
+  const sort = VALID_SORT.has(searchParams.get('sort')) ? searchParams.get('sort') : 'NEWEST';
+  const raw = parseInt(searchParams.get('page'), 10);
+  const page = Number.isFinite(raw) && raw >= 1 ? raw : 1; // 1-based in URL
+  return { status, sort, page };
+};
+
+const buildParams = ({ status, sort, page }) => {
+  const p = {};
+  if (status && status !== 'ALL') p.status = status;
+  if (sort && sort !== 'NEWEST') p.sort = sort;
+  if (page && page > 1) p.page = String(page);
+  return p;
+};
+
 const DepartmentComplaints = () => {
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [sortOrder, setSortOrder] = useState('NEWEST');
-  const [page, setPage] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { status: statusFilter, sort: sortOrder, page: pageNum } = parseParams(searchParams);
+  const page = pageNum - 1; // 0-based for API/UI
+
+  const shouldRestore = useRef(sessionStorage.getItem(RETURN_KEY) === '1');
+  const consumedReturn = useRef(false);
+  const restoredRef = useRef(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState(null);
   const [profileType, setProfileType] = useState(null);
 
-  // Filter, sort and page are part of the query key; keepPreviousData inside the hook keeps the
-  // current rows rendered while the next query loads, so paging never flashes a skeleton.
   const { data, isPending, error } = useComplaintsList('department', {
     status: statusFilter,
     sort: sortOrder,
@@ -25,8 +54,58 @@ const DepartmentComplaints = () => {
   });
 
   const complaints = data?.content ?? [];
-  const totalPages = data?.pageable?.totalPages ?? 0;
+  const totalPages = data?.totalPages ?? data?.pageable?.totalPages ?? 0;
   const navigate = useNavigate();
+
+  // Clamp out-of-range page once totals are known.
+  useEffect(() => {
+    if (!isPending && totalPages > 0 && page >= totalPages) {
+      setSearchParams(
+        buildParams({ status: statusFilter, sort: sortOrder, page: totalPages }),
+        { replace: true }
+      );
+    }
+  }, [isPending, totalPages, page, statusFilter, sortOrder, setSearchParams]);
+
+  useLayoutEffect(() => {
+    // Consume return intent once per mount (StrictMode-safe).
+    if (!consumedReturn.current) {
+      consumedReturn.current = true;
+      if (shouldRestore.current) sessionStorage.removeItem(RETURN_KEY);
+    }
+
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+
+    if (!shouldRestore.current) {
+      // Fresh visit, hard refresh, push, or replace: keep URL state, land at top of page.
+      sessionStorage.removeItem(SCROLL_KEY);
+      const toTop = () => window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      toTop();
+      requestAnimationFrame(toTop);
+      requestAnimationFrame(() => requestAnimationFrame(toTop));
+      [0, 50, 150, 300].forEach((ms) => setTimeout(toTop, ms));
+      return;
+    }
+
+    // Return from detail (back): restore saved scroll after content is ready.
+    if (restoredRef.current || isPending) return;
+    const y = Number(sessionStorage.getItem(SCROLL_KEY));
+    if (!Number.isFinite(y) || y < 0) return;
+    restoredRef.current = true;
+    const restore = () => window.scrollTo({ top: y, left: 0, behavior: 'auto' });
+    restore();
+    requestAnimationFrame(restore);
+    requestAnimationFrame(() => requestAnimationFrame(restore));
+    [0, 50, 120, 250, 400, 700, 1000].forEach((ms) => setTimeout(restore, ms));
+  }, [isPending, complaints.length, page, statusFilter, sortOrder]);
+
+  const openComplaint = (id) => {
+    sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
+    sessionStorage.setItem(RETURN_KEY, '1');
+    navigate(`/department/complaints/${id}`);
+  };
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -61,7 +140,7 @@ const DepartmentComplaints = () => {
           <label className="font-medium text-gray-700">Status:</label>
           <select 
             value={statusFilter} 
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
+            onChange={(e) => setSearchParams(buildParams({ status: e.target.value, sort: sortOrder, page: 1 }), { replace: true })}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           >
             <option value="ALL">All</option>
@@ -76,7 +155,7 @@ const DepartmentComplaints = () => {
           <label className="font-medium text-gray-700">Sort:</label>
           <select 
             value={sortOrder} 
-            onChange={(e) => { setSortOrder(e.target.value); setPage(0); }}
+            onChange={(e) => setSearchParams(buildParams({ status: statusFilter, sort: e.target.value, page: 1 }), { replace: true })}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           >
             <option value="NEWEST">Newest First</option>
@@ -148,7 +227,7 @@ const DepartmentComplaints = () => {
                   </div>
                 </div>
                 <button 
-                  onClick={() => navigate(`/department/complaints/${complaint.id}`)}
+                  onClick={() => openComplaint(complaint.id)}
                   className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
                 >
                   View Details
@@ -169,20 +248,20 @@ const DepartmentComplaints = () => {
               className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-8"
             >
               <button
-                onClick={() => setPage(p => Math.max(0, p - 1))}
-                disabled={page === 0}
+                onClick={() => setSearchParams(buildParams({ status: statusFilter, sort: sortOrder, page: Math.max(1, pageNum - 1) }), { replace: true })}
+                disabled={pageNum <= 1}
                 className="min-h-[44px] px-5 sm:px-6 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
 
               <span className="order-last w-full sm:order-none sm:w-auto text-center text-sm sm:text-base text-gray-600">
-                Page {page + 1} of {totalPages}
+                Page {pageNum} of {totalPages}
               </span>
 
               <button
-                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-                disabled={page === totalPages - 1}
+                onClick={() => setSearchParams(buildParams({ status: statusFilter, sort: sortOrder, page: Math.min(totalPages, pageNum + 1) }), { replace: true })}
+                disabled={pageNum >= totalPages}
                 className="min-h-[44px] px-5 sm:px-6 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 Next
