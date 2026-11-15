@@ -111,7 +111,7 @@ The frontend uses a **blue, white, and gray color scheme** with Tailwind CSS:
 
 ## Security Implementation
 
-This frontend implements enterprise-grade security patterns aligned with the Spring Boot backend:
+This frontend implements security patterns aligned with the Spring Boot backend:
 
 ### Cookie-Based Authentication
 - **HttpOnly Cookies**: Access and refresh tokens stored in HttpOnly cookies (JavaScript cannot access tokens)

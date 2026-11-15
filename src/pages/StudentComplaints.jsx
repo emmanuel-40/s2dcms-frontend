@@ -7,6 +7,7 @@ import { useComplaintsList } from '../hooks/queries';
 
 const SCROLL_KEY = 'studentComplaintsScroll';
 const RETURN_KEY = 'studentComplaintsReturn';
+const QUERY_KEY = 'studentComplaintsQuery';
 
 // Take control of scroll restoration (browser default fights manual restore).
 if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
@@ -112,6 +113,7 @@ const StudentComplaints = () => {
   const openComplaint = (id) => {
     sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
     sessionStorage.setItem(RETURN_KEY, '1');
+    sessionStorage.setItem(QUERY_KEY, window.location.search || '');
     navigate(`/student/complaints/${id}`);
   };
 

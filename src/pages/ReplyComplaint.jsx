@@ -94,11 +94,13 @@ const ReplyComplaint = () => {
 
       /*
        * mutateAsync does not resolve until the mutation's onSuccess has finished, and that onSuccess
-       * prefetches the complaint this reply just changed.        */
+       * prefetches the complaint this reply just changed.
+       * Replace reply route so Back from detail/list does not return to this form.
+       */
       await replyMutation.mutateAsync(formDataObj);
 
       toast.success('Reply sent. The student has been notified.');
-      navigate(`/department/complaints/${id}`);
+      navigate(`/department/complaints/${id}`, { replace: true });
     } catch (err) {
       setError(err.message || 'Failed to submit reply');
     }
@@ -116,7 +118,7 @@ const ReplyComplaint = () => {
         {loadError.message || 'Failed to load complaint'}
       </div>
       <button 
-        onClick={() => navigate('/department/complaints')}
+        onClick={() => navigate('/department/complaints', { replace: true })}
         className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
       >
         Back to List
@@ -129,7 +131,7 @@ const ReplyComplaint = () => {
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Reply to Complaint #{id}</h1>
         <button 
-          onClick={() => navigate(`/department/complaints/${id}`)}
+          onClick={() => navigate(`/department/complaints/${id}`, { replace: true })}
           className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
         >
           Cancel
@@ -242,7 +244,7 @@ const ReplyComplaint = () => {
         <div className="flex gap-4 mt-6">
           <button 
             type="button" 
-            onClick={() => navigate(`/department/complaints/${id}`)}
+            onClick={() => navigate(`/department/complaints/${id}`, { replace: true })}
             className="flex-1 bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors"
           >
             Cancel

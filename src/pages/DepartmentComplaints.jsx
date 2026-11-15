@@ -9,6 +9,7 @@ import { assetUrl } from '../config';
 
 const SCROLL_KEY = 'departmentComplaintsScroll';
 const RETURN_KEY = 'departmentComplaintsReturn';
+const QUERY_KEY = 'departmentComplaintsQuery';
 
 // Take control of scroll restoration (browser default fights manual restore).
 if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
@@ -117,6 +118,7 @@ const DepartmentComplaints = () => {
   const openComplaint = (id) => {
     sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
     sessionStorage.setItem(RETURN_KEY, '1');
+    sessionStorage.setItem(QUERY_KEY, window.location.search || '');
     navigate(`/department/complaints/${id}`);
   };
 

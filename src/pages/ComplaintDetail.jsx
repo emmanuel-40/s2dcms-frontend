@@ -35,9 +35,12 @@ const ComplaintDetail = ({ userType }) => {
   }, [id]);
 
   const listPath = userType === 'student' ? '/student/complaints' : '/department/complaints';
+  const listQueryKey = userType === 'student' ? 'studentComplaintsQuery' : 'departmentComplaintsQuery';
   const goBackToList = () => {
-    if (window.history.length > 1) navigate(-1);
-    else navigate(listPath);
+    // Deterministic navigation avoids reply/detail history loops after submit/cancel flows,
+    // while restoring the last saved list filters/search/page state.
+    const savedQuery = sessionStorage.getItem(listQueryKey) || '';
+    navigate(`${listPath}${savedQuery}`);
   };
 
   /*

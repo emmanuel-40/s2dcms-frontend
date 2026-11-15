@@ -121,7 +121,8 @@ const NewComplaint = () => {
       await submitOnce();
       setSubmitNotice('');
       toast.success('Complaint submitted successfully.');
-      navigate('/student/complaints');
+      // Replace form route so Back does not return to a submitted/dirty form.
+      navigate('/student/complaints', { replace: true });
     } catch (err) {
       setSubmitNotice('');
       if (!error) {
@@ -174,7 +175,7 @@ const NewComplaint = () => {
       <header className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Submit New Complaint</h1>
         <button 
-          onClick={() => navigate('/student/complaints')}
+          onClick={() => navigate('/student/complaints', { replace: true })}
           className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
         >
           Cancel
@@ -258,7 +259,7 @@ const NewComplaint = () => {
         <div className="flex gap-4 mt-6">
           <button
             type="button"
-            onClick={() => navigate('/student/complaints')}
+            onClick={() => navigate('/student/complaints', { replace: true })}
             className="flex-1 bg-gray-600 text-white py-2 rounded-lg hover:bg-gray-700 transition-colors"
           >
             Cancel
