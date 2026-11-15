@@ -1,7 +1,7 @@
 // Student Complaints List Page
 import React, { useEffect, useRef, useLayoutEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Eye, EyeOff, Clock } from 'lucide-react';
+import { Eye, EyeOff, Clock, Search } from 'lucide-react';
 import PageSkeleton from '../components/PageSkeleton';
 import { useComplaintsList } from '../hooks/queries';
 
@@ -21,31 +21,35 @@ const parseParams = (searchParams) => {
   const sort = VALID_SORT.has(searchParams.get('sort')) ? searchParams.get('sort') : 'NEWEST';
   const raw = parseInt(searchParams.get('page'), 10);
   const page = Number.isFinite(raw) && raw >= 1 ? raw : 1; // 1-based in URL
-  return { status, sort, page };
+  const search = searchParams.get('search') || '';
+  return { status, sort, page, search };
 };
 
-const buildParams = ({ status, sort, page }) => {
+const buildParams = ({ status, sort, page, search }) => {
   const p = {};
   if (status && status !== 'ALL') p.status = status;
   if (sort && sort !== 'NEWEST') p.sort = sort;
+  if (search && search.trim()) p.search = search.trim();
   if (page && page > 1) p.page = String(page);
   return p;
 };
 
 const StudentComplaints = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const { status: statusFilter, sort: sortOrder, page: pageNum } = parseParams(searchParams);
+  const { status: statusFilter, sort: sortOrder, page: pageNum, search: searchQuery } = parseParams(searchParams);
   const page = pageNum - 1; // 0-based for API/UI
 
   const shouldRestore = useRef(sessionStorage.getItem(RETURN_KEY) === '1');
   const consumedReturn = useRef(false);
   const restoredRef = useRef(false);
+  const prevPageRef = useRef(pageNum);
 
   const { data, isPending, error } = useComplaintsList('student', {
     status: statusFilter,
     sort: sortOrder,
     page,
     size: 10,
+    search: searchQuery,
   });
 
   const complaints = data?.content ?? [];
@@ -56,12 +60,13 @@ const StudentComplaints = () => {
   useEffect(() => {
     if (!isPending && totalPages > 0 && page >= totalPages) {
       setSearchParams(
-        buildParams({ status: statusFilter, sort: sortOrder, page: totalPages }),
+        buildParams({ status: statusFilter, sort: sortOrder, page: totalPages, search: searchQuery }),
         { replace: true }
       );
     }
-  }, [isPending, totalPages, page, statusFilter, sortOrder, setSearchParams]);
+  }, [isPending, totalPages, page, statusFilter, sortOrder, searchQuery, setSearchParams]);
 
+  // Scroll to top on page/filter changes (not on return-from-detail restore).
   useLayoutEffect(() => {
     // Consume return intent once per mount (StrictMode-safe).
     if (!consumedReturn.current) {
@@ -94,7 +99,15 @@ const StudentComplaints = () => {
     requestAnimationFrame(restore);
     requestAnimationFrame(() => requestAnimationFrame(restore));
     [0, 50, 120, 250, 400, 700, 1000].forEach((ms) => setTimeout(restore, ms));
-  }, [isPending, complaints.length, page, statusFilter, sortOrder]);
+  }, [isPending, complaints.length, page, statusFilter, sortOrder, searchQuery]);
+
+  // Scroll to top when user navigates pages via Next/Previous or changes filters.
+  useEffect(() => {
+    if (prevPageRef.current !== pageNum) {
+      prevPageRef.current = pageNum;
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+  }, [pageNum]);
 
   const openComplaint = (id) => {
     sessionStorage.setItem(SCROLL_KEY, String(window.scrollY));
@@ -135,7 +148,7 @@ const StudentComplaints = () => {
           <label className="font-medium text-gray-700">Status:</label>
           <select 
             value={statusFilter} 
-            onChange={(e) => setSearchParams(buildParams({ status: e.target.value, sort: sortOrder, page: 1 }), { replace: true })}
+            onChange={(e) => setSearchParams(buildParams({ status: e.target.value, sort: sortOrder, page: 1, search: searchQuery }), { replace: true })}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           >
             <option value="ALL">All</option>
@@ -150,14 +163,28 @@ const StudentComplaints = () => {
           <label className="font-medium text-gray-700">Sort:</label>
           <select 
             value={sortOrder} 
-            onChange={(e) => setSearchParams(buildParams({ status: statusFilter, sort: e.target.value, page: 1 }), { replace: true })}
+            onChange={(e) => setSearchParams(buildParams({ status: statusFilter, sort: e.target.value, page: 1, search: searchQuery }), { replace: true })}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           >
             <option value="NEWEST">Newest First</option>
             <option value="OLDEST">Oldest First</option>
           </select>
         </div>
-        
+
+        <div className="flex items-center gap-2">
+          <label className="font-medium text-gray-700">Search:</label>
+          <div className="relative">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search title or content..."
+              value={searchQuery}
+              onChange={(e) => setSearchParams(buildParams({ status: statusFilter, sort: sortOrder, page: 1, search: e.target.value }), { replace: true })}
+              className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none w-64"
+            />
+          </div>
+        </div>
+
         <button 
           onClick={() => navigate('/student/complaints/new')}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -175,15 +202,36 @@ const StudentComplaints = () => {
       {complaints.length === 0 ? (
         <div className="text-center py-12 text-gray-600">
           <p>No complaints found.</p>
-          <button 
-            onClick={() => navigate('/student/complaints/new')}
-            className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Submit Your First Complaint
-          </button>
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchParams(buildParams({ status: statusFilter, sort: sortOrder, page: 1, search: '' }), { replace: true })}
+              className="mt-4 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Clear search
+            </button>
+          )}
+          {!searchQuery && (
+            <button 
+              onClick={() => navigate('/student/complaints/new')}
+              className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Submit Your First Complaint
+            </button>
+          )}
         </div>
       ) : (
         <>
+          <div className="flex items-center justify-between mb-4">
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchParams(buildParams({ status: statusFilter, sort: sortOrder, page: 1, search: '' }), { replace: true })}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Clear search
+              </button>
+            )}
+          </div>
+
           <div className="grid gap-4">
             {complaints.map((complaint) => (
               <div key={complaint.id} className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow">
@@ -225,19 +273,14 @@ const StudentComplaints = () => {
             ))}
           </div>
 
-          {/*
-            Responsive pagination. The label moves below the buttons on narrow screens
-            (order-last + w-full) because "Page 1 of 12" competing for width with two
-            buttons mid-phrase is what made this wrap badly on a phone. Buttons keep a
-            44px min-height, the accessibility floor for a touch target.
-          */}
+          {/* Pagination */}
           {totalPages > 1 && (
             <nav
               aria-label="Complaint list pages"
               className="flex flex-wrap items-center justify-center gap-3 sm:gap-4 mt-8"
             >
               <button
-                onClick={() => setSearchParams(buildParams({ status: statusFilter, sort: sortOrder, page: Math.max(1, pageNum - 1) }), { replace: true })}
+                onClick={() => setSearchParams(buildParams({ status: statusFilter, sort: sortOrder, page: Math.max(1, pageNum - 1), search: searchQuery }), { replace: true })}
                 disabled={pageNum <= 1}
                 className="min-h-[44px] px-5 sm:px-6 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
@@ -248,8 +291,33 @@ const StudentComplaints = () => {
                 Page {pageNum} of {totalPages}
               </span>
 
+              {/* Jump to page input */}
+              <div className="flex items-center gap-1">
+                <label className="text-sm text-gray-600 whitespace-nowrap">Go to page:</label>
+                <input
+                  type="number"
+                  min="1"
+                  max={totalPages}
+                  defaultValue=""
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      const val = parseInt(e.target.value, 10);
+                      if (Number.isFinite(val) && val >= 1 && val <= totalPages) {
+                        setSearchParams(
+                          buildParams({ status: statusFilter, sort: sortOrder, page: val, search: searchQuery }),
+                          { replace: true }
+                        );
+                        e.target.blur();
+                      }
+                    }
+                  }}
+                  className="w-16 px-2 py-2 text-center border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                  placeholder={`${totalPages}`}
+                />
+              </div>
+
               <button
-                onClick={() => setSearchParams(buildParams({ status: statusFilter, sort: sortOrder, page: Math.min(totalPages, pageNum + 1) }), { replace: true })}
+                onClick={() => setSearchParams(buildParams({ status: statusFilter, sort: sortOrder, page: Math.min(totalPages, pageNum + 1), search: searchQuery }), { replace: true })}
                 disabled={pageNum >= totalPages}
                 className="min-h-[44px] px-5 sm:px-6 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >

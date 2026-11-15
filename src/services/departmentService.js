@@ -19,7 +19,8 @@ export const departmentService = {
       status = 'ALL',
       sort = 'NEWEST',
       page = 0,
-      size = 10
+      size = 10,
+      search = ''
     } = params;
 
     const queryParams = new URLSearchParams({
@@ -28,6 +29,8 @@ export const departmentService = {
       page: page.toString(),
       size: size.toString(),
     });
+
+    if (search) queryParams.set('search', search);
 
     return await apiClient.get(`/department/complaints?${queryParams}`);
   },

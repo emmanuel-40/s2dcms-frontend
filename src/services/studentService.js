@@ -23,13 +23,14 @@ export const studentService = {
 
   // Get student complaints
   getComplaints: async (params = {}) => {
-    const { status = 'ALL', sort = 'NEWEST', page = 0, size = 10 } = params;
+    const { status = 'ALL', sort = 'NEWEST', page = 0, size = 10, search = '' } = params;
     const queryParams = new URLSearchParams({
       status,
       sort,
       page: page.toString(),
       size: size.toString(),
     });
+    if (search) queryParams.set('search', search);
     return await apiClient.get(`/students/complaints?${queryParams}`);
   },
 

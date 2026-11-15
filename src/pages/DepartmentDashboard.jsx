@@ -162,7 +162,7 @@ const DepartmentDashboard = () => {
           </div>
         </section>
 
-        <section className="bg-white p-4 md:p-6 rounded-lg shadow-md">
+        <section className="bg-white p-4 md:p-6 rounded-lg shadow-md border-2 border-blue-100">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
             <h2 className="text-lg md:text-xl font-bold text-gray-800">Recent Complaints</h2>
             <button 
@@ -174,11 +174,19 @@ const DepartmentDashboard = () => {
           </div>
           
           {complaints.length === 0 ? (
-            <p className="text-gray-600">No complaints received yet.</p>
+            <div className="flex items-center justify-between py-4">
+              <p className="text-gray-600">No complaints received yet.</p>
+              <button 
+                onClick={() => navigate('/department/complaints')}
+                className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              >
+                View All
+              </button>
+            </div>
           ) : (
             <div className="grid gap-4">
               {complaints.map((complaint) => (
-                <div key={complaint.id} className="bg-gray-50 p-3 md:p-4 rounded-lg shadow hover:shadow-md transition-shadow">
+                <div key={complaint.id} className="bg-white p-3 md:p-4 rounded-lg border-2 border-blue-200 shadow-sm hover:shadow-md hover:border-blue-400 transition-all">
                   <div className="flex flex-col sm:flex-row items-start gap-3 mb-2">
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                       {complaint.profilePicturePath && (
@@ -225,6 +233,13 @@ const DepartmentDashboard = () => {
                   </button>
                 </div>
               ))}
+              {/* View All button at bottom - full width */}
+              <button
+                onClick={() => navigate('/department/complaints')}
+                className="mt-4 w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                View All Complaints
+              </button>
             </div>
           )}
         </section>

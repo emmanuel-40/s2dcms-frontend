@@ -66,7 +66,6 @@ const LoginPage = () => {
         setError('Your email is not verified. Please verify your email to login.');
       } else if (err.message.includes('Too many attempts')) {
         setAttemptsWarning(err.message);
-        setError(err.message); // Show the actual time remaining message from backend
       } else {
         setError(err.message || 'Login failed');
       }
