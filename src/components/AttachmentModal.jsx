@@ -94,7 +94,9 @@ const AttachmentModal = ({
 
   const handleDownload = async () => {
     try {
-      const response = await fetch(fullUrl);
+      // Complaint attachments require the auth cookie. <img>/window.open send it automatically,
+      // but fetch() does not unless credentials are explicitly included for cross-origin APIs.
+      const response = await fetch(fullUrl, { credentials: 'include' });
       if (!response.ok) throw new Error(`Unable to fetch file (${response.status})`);
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
